@@ -37,20 +37,20 @@ type PubsubValueStore struct {
 	subs map[string]*floodsub.Subscription
 
 	Validator record.Validator
-	Selector  record.Selector
 }
 
 // NewPubsubPublisher constructs a new Publisher that publishes IPNS records through pubsub.
 // The constructor interface is complicated by the need to bootstrap the pubsub topic.
 // This could be greatly simplified if the pubsub implementation handled bootstrap itself
-func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.ContentRouting, ps *floodsub.PubSub) *PubsubValueStore {
+func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.ContentRouting, ps *floodsub.PubSub, validator record.Validator) *PubsubValueStore {
 	return &PubsubValueStore{
-		ctx:  ctx,
-		ds:   dssync.MutexWrap(ds.NewMapDatastore()),
-		host: host, // needed for pubsub bootstrap
-		cr:   cr,   // needed for pubsub bootstrap
-		ps:   ps,
-		subs: make(map[string]*floodsub.Subscription),
+		ctx:       ctx,
+		ds:        dssync.MutexWrap(ds.NewMapDatastore()),
+		host:      host, // needed for pubsub bootstrap
+		cr:        cr,   // needed for pubsub bootstrap
+		ps:        ps,
+		Validator: validator,
+		subs:      make(map[string]*floodsub.Subscription),
 	}
 }
 
@@ -73,21 +73,7 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 }
 
 func (p *PubsubValueStore) isBetter(key string, val []byte) bool {
-	ns, name, err := record.SplitKey(key)
-	if err != nil {
-		return false
-	}
-	selector, ok1 := p.Selector[ns]
-	validator, ok2 := p.Validator[ns]
-	if !(ok1 && ok2) {
-		return false
-	}
-
-	if validator(&record.ValidationRecord{
-		Namespace: ns,
-		Key:       name,
-		Value:     val,
-	}) != nil {
+	if p.Validator.Validate(key, val) != nil {
 		return false
 	}
 
@@ -102,29 +88,11 @@ func (p *PubsubValueStore) isBetter(key string, val []byte) bool {
 		return true
 	}
 
-	i, err := selector(key, [][]byte{val, old})
+	i, err := p.Validator.Select(key, [][]byte{val, old})
 	return err == nil && i == 0
 }
 
-func (p *PubsubValueStore) canValidate(key string) error {
-	ns, _, err := record.SplitKey(key)
-	if err != nil {
-		return err
-	}
-
-	_, ok1 := p.Selector[ns]
-	_, ok2 := p.Validator[ns]
-	if !(ok1 && ok2) {
-		return record.ErrInvalidRecordType
-	}
-	return nil
-}
-
 func (p *PubsubValueStore) Subscribe(key string) error {
-	if err := p.canValidate(key); err != nil {
-		return err
-	}
-
 	p.mx.Lock()
 	// see if we already have a pubsub subscription; if not, subscribe
 	sub := p.subs[key]
@@ -171,16 +139,6 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 }
 
 func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
-	ns, name, err := record.SplitKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	validator, ok := p.Validator[ns]
-	if !ok {
-		return nil, record.ErrInvalidRecordType
-	}
-
 	dsval, err := p.ds.Get(dshelp.NewKeyFromBinary([]byte(key)))
 	if err != nil {
 		// Don't invalidate due to ds errors.
@@ -192,11 +150,7 @@ func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
 	val := dsval.([]byte)
 
 	// If the old one is invalid, the new one is *always* better.
-	if err := validator(&record.ValidationRecord{
-		Namespace: ns,
-		Key:       name,
-		Value:     val,
-	}); err != nil {
+	if err := p.Validator.Validate(key, val); err != nil {
 		return nil, err
 	}
 	return val, nil
