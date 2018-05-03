@@ -31,6 +31,41 @@ func newNetHosts(ctx context.Context, t *testing.T, n int) []p2phost.Host {
 	return out
 }
 
+type testValidator struct{}
+
+func (testValidator) Validate(key string, value []byte) error {
+	ns, k, err := record.SplitKey(key)
+	if err != nil {
+		return err
+	}
+	if ns != "namespace" {
+		return record.ErrInvalidRecordType
+	}
+	if !bytes.Contains(value, []byte(k)) {
+		return record.ErrInvalidRecordType
+	}
+	if bytes.Contains(value, []byte("invalid")) {
+		return record.ErrInvalidRecordType
+	}
+	return nil
+
+}
+
+func (testValidator) Select(key string, vals [][]byte) (int, error) {
+	if len(vals) == 0 {
+		panic("selector with no values")
+	}
+	var best []byte
+	idx := 0
+	for i, val := range vals {
+		if bytes.Compare(best, val) < 0 {
+			best = val
+			idx = i
+		}
+	}
+	return idx, nil
+}
+
 // tests
 func TestPubsubPublishSubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -48,37 +83,7 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		vss[i] = NewPubsubValueStore(ctx, hosts[i], rhelper.Null{}, fs)
-		vss[i].Validator = record.Validator{
-			"namespace": func(r *record.ValidationRecord) error {
-				if r.Namespace != "namespace" {
-					return record.ErrInvalidRecordType
-				}
-				if !bytes.Contains(r.Value, []byte(r.Key)) {
-					return record.ErrInvalidRecordType
-				}
-				if bytes.Contains(r.Value, []byte("invalid")) {
-					return record.ErrInvalidRecordType
-				}
-				return nil
-			},
-		}
-		vss[i].Selector = record.Selector{
-			"namespace": func(key string, vals [][]byte) (int, error) {
-				if len(vals) == 0 {
-					panic("selector with no values")
-				}
-				var best []byte
-				idx := 0
-				for i, val := range vals {
-					if bytes.Compare(best, val) < 0 {
-						best = val
-						idx = i
-					}
-				}
-				return idx, nil
-			},
-		}
+		vss[i] = NewPubsubValueStore(ctx, hosts[i], rhelper.Null{}, fs, testValidator{})
 	}
 	pub := vss[0]
 	vss = vss[1:]
