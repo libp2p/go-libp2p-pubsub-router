@@ -3,6 +3,7 @@ package namesys
 import (
 	"bytes"
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -193,6 +194,74 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 	time.Sleep(time.Second * 1)
 	for i, vs := range vss {
 		checkValue(ctx, t, i, vs, key, val)
+	}
+}
+
+func TestWatch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	key := "/namespace/key"
+
+	hosts := newNetHosts(ctx, t, 5)
+	vss := make([]*PubsubValueStore, len(hosts))
+	for i := 0; i < len(vss); i++ {
+
+		fs, err := floodsub.NewFloodSub(ctx, hosts[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		vss[i] = NewPubsubValueStore(ctx, hosts[i], rhelper.Null{}, fs, testValidator{})
+	}
+	pub := vss[0]
+	vss = vss[1:]
+
+	pubinfo := hosts[0].Peerstore().PeerInfo(hosts[0].ID())
+	for _, h := range hosts[1:] {
+		if err := h.Connect(ctx, pubinfo); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	time.Sleep(time.Millisecond * 100)
+	for i, vs := range vss {
+		checkNotFound(ctx, t, i, vs, key)
+		// delay to avoid connection storms
+		time.Sleep(time.Millisecond * 100)
+	}
+
+	// let the bootstrap finish
+	time.Sleep(time.Second * 1)
+
+	ch := pub.Watch(key)
+	var watched []byte
+	var wg sync.WaitGroup
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		for v := range ch {
+			watched = v
+		}
+	}()
+
+	err := pub.Subscribe(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+
+	val := []byte("valid for key 1")
+	err = pub.PutValue(ctx, key, val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(time.Second * 1)
+	pub.Cancel(key)
+	wg.Wait()
+	if !bytes.Equal(val, watched) {
+		t.Fatal("should have watched the update")
 	}
 }
 
