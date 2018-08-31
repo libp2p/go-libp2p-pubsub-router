@@ -22,6 +22,14 @@ import (
 
 var log = logging.Logger("pubsub-valuestore")
 
+type watchGroup struct {
+	lk      sync.RWMutex
+	closing chan struct{}
+
+	listeners map[int64]chan<- []byte
+	n         int64
+}
+
 type PubsubValueStore struct {
 	ctx  context.Context
 	ds   ds.Datastore
@@ -35,6 +43,9 @@ type PubsubValueStore struct {
 	// but haven't subscribed.
 	mx   sync.Mutex
 	subs map[string]*floodsub.Subscription
+
+	watchLk  sync.RWMutex
+	watching map[string]*watchGroup
 
 	Validator record.Validator
 }
@@ -163,6 +174,37 @@ func (p *PubsubValueStore) GetValue(ctx context.Context, key string, opts ...rop
 	return p.getLocal(key)
 }
 
+func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...ropts.Option) (<-chan []byte, error) {
+	if err := p.Subscribe(key); err != nil {
+		return nil, err
+	}
+
+	p.watchLk.Lock()
+	wg, ok := p.watching[key]
+	if !ok {
+		wg = &watchGroup{
+			closing:   make(chan struct{}),
+			listeners: map[int64]chan<- []byte{},
+		}
+	}
+	// Lock searchgroup before checking local storage so we don't miss updates
+	wg.lk.Lock()
+	p.watchLk.Unlock()
+
+	out := make(chan []byte, 1)
+	lv, err := p.getLocal(key)
+	if err == nil {
+		out <- lv
+	}
+
+	p.watchLk.Lock()
+	wg.add(ctx, out)
+	p.watchLk.Lock()
+	wg.lk.Unlock()
+
+	return out, nil
+}
+
 // GetSubscriptions retrieves a list of active topic subscriptions
 func (p *PubsubValueStore) GetSubscriptions() []string {
 	p.mx.Lock()
@@ -188,6 +230,13 @@ func (p *PubsubValueStore) Cancel(name string) bool {
 		delete(p.subs, name)
 	}
 
+	p.watchLk.Lock()
+	if wg, wok := p.watching[name]; wok {
+		close(wg.closing)
+		delete(p.watching, name)
+	}
+	p.watchLk.Unlock()
+
 	return ok
 }
 
@@ -208,8 +257,24 @@ func (p *PubsubValueStore) handleSubscription(sub *floodsub.Subscription, key st
 			if err != nil {
 				log.Warningf("PubsubResolve: error writing update for %s: %s", key, err)
 			}
+			p.notifyWatchers(key, msg.GetData())
 		}
 	}
+}
+
+func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
+	p.watchLk.RLock()
+	sg, ok := p.watching[key]
+	p.watchLk.RUnlock()
+	if !ok {
+		return
+	}
+
+	sg.lk.RLock()
+	for _, watcher := range sg.listeners {
+		watcher <- data
+	}
+	sg.lk.RUnlock()
 }
 
 // rendezvous with peers in the name topic through provider records
@@ -267,4 +332,39 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	}
 
 	wg.Wait()
+}
+
+func (wg *watchGroup) add(ctx context.Context, outCh chan []byte) {
+	proxy := make(chan []byte, 1)
+	n := wg.n
+	wg.listeners[n] = proxy
+	wg.n++
+
+	go func() {
+		defer close(outCh)
+		defer func() {
+			wg.lk.Lock()
+			delete(wg.listeners, n)
+			//TODO: watchgroup GC?
+			wg.lk.Unlock()
+		}()
+
+		select {
+		case val, ok := <-proxy:
+			if !ok {
+				return
+			}
+
+			// outCh is buffered, so we just put the value or swap it for the newer one
+			select {
+			case outCh <- val:
+			case <-outCh:
+				outCh <- val
+			}
+		case <-wg.closing:
+			return
+		case <-ctx.Done():
+			return
+		}
+	}()
 }
