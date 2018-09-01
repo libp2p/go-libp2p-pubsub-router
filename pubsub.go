@@ -55,13 +55,17 @@ type PubsubValueStore struct {
 // This could be greatly simplified if the pubsub implementation handled bootstrap itself
 func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.ContentRouting, ps *floodsub.PubSub, validator record.Validator) *PubsubValueStore {
 	return &PubsubValueStore{
-		ctx:       ctx,
-		ds:        dssync.MutexWrap(ds.NewMapDatastore()),
-		host:      host, // needed for pubsub bootstrap
-		cr:        cr,   // needed for pubsub bootstrap
-		ps:        ps,
+		ctx: ctx,
+
+		ds:   dssync.MutexWrap(ds.NewMapDatastore()),
+		host: host, // needed for pubsub bootstrap
+		cr:   cr,   // needed for pubsub bootstrap
+		ps:   ps,
+
+		subs:     make(map[string]*floodsub.Subscription),
+		watching: make(map[string]*watchGroup),
+
 		Validator: validator,
-		subs:      make(map[string]*floodsub.Subscription),
 	}
 }
 
@@ -186,6 +190,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 			closing:   make(chan struct{}),
 			listeners: map[int64]chan<- []byte{},
 		}
+		p.watching[key] = wg
 	}
 	// Lock searchgroup before checking local storage so we don't miss updates
 	wg.lk.Lock()
@@ -199,7 +204,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 
 	p.watchLk.Lock()
 	wg.add(ctx, out)
-	p.watchLk.Lock()
+	p.watchLk.Unlock()
 	wg.lk.Unlock()
 
 	return out, nil
@@ -349,22 +354,24 @@ func (wg *watchGroup) add(ctx context.Context, outCh chan []byte) {
 			wg.lk.Unlock()
 		}()
 
-		select {
-		case val, ok := <-proxy:
-			if !ok {
+		for {
+			select {
+			case val, ok := <-proxy:
+				if !ok {
+					return
+				}
+
+				// outCh is buffered, so we just put the value or swap it for the newer one
+				select {
+				case outCh <- val:
+				case <-outCh:
+					outCh <- val
+				}
+			case <-wg.closing:
+				return
+			case <-ctx.Done():
 				return
 			}
-
-			// outCh is buffered, so we just put the value or swap it for the newer one
-			select {
-			case outCh <- val:
-			case <-outCh:
-				outCh <- val
-			}
-		case <-wg.closing:
-			return
-		case <-ctx.Done():
-			return
 		}
 	}()
 }
