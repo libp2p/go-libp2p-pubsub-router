@@ -36,7 +36,15 @@ type PubsubValueStore struct {
 	mx   sync.Mutex
 	subs map[string]*floodsub.Subscription
 
+	watchMux sync.RWMutex
+	watch    map[string]*watchChannels
+
 	Validator record.Validator
+}
+
+type watchChannels struct {
+	mux      sync.RWMutex
+	channels []chan []byte
 }
 
 // NewPubsubPublisher constructs a new Publisher that publishes IPNS records through pubsub.
@@ -51,6 +59,7 @@ func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.Cont
 		ps:        ps,
 		Validator: validator,
 		subs:      make(map[string]*floodsub.Subscription),
+		watch:     make(map[string]*watchChannels),
 	}
 }
 
@@ -138,6 +147,23 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	return nil
 }
 
+func (p *PubsubValueStore) Watch(key string) <-chan []byte {
+	p.watchMux.Lock()
+	defer p.watchMux.Unlock()
+	wChs, ok := p.watch[key]
+	if !ok {
+		wChs = &watchChannels{
+			channels: make([]chan []byte, 0),
+		}
+		p.watch[key] = wChs
+	}
+	newCh := make(chan []byte)
+	wChs.mux.Lock()
+	wChs.channels = append(wChs.channels, newCh)
+	wChs.mux.Unlock()
+	return newCh
+}
+
 func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
 	val, err := p.ds.Get(dshelp.NewKeyFromBinary([]byte(key)))
 	if err != nil {
@@ -188,6 +214,8 @@ func (p *PubsubValueStore) Cancel(name string) bool {
 		delete(p.subs, name)
 	}
 
+	p.cancelWatchers(name)
+
 	return ok
 }
 
@@ -208,8 +236,44 @@ func (p *PubsubValueStore) handleSubscription(sub *floodsub.Subscription, key st
 			if err != nil {
 				log.Warningf("PubsubResolve: error writing update for %s: %s", key, err)
 			}
+			p.notifyWatchers(key, msg.GetData())
 		}
 	}
+}
+
+func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
+	p.watchMux.RLock()
+	watchChannels, ok := p.watch[key]
+	if !ok {
+		p.watchMux.RUnlock()
+		return
+	}
+	watchChannels.mux.RLock()
+	p.watchMux.RUnlock()
+
+	defer watchChannels.mux.RUnlock()
+	for _, ch := range watchChannels.channels {
+		select {
+		case ch <- data:
+		default:
+		}
+	}
+}
+
+func (p *PubsubValueStore) cancelWatchers(key string) {
+	p.watchMux.Lock()
+	defer p.watchMux.Unlock()
+	watchChannels, ok := p.watch[key]
+	if !ok {
+		return
+	}
+
+	watchChannels.mux.Lock()
+	for _, ch := range watchChannels.channels {
+		close(ch)
+	}
+	watchChannels.mux.Unlock()
+	delete(p.watch, key)
 }
 
 // rendezvous with peers in the name topic through provider records
