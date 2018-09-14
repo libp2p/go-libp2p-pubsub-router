@@ -202,7 +202,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 	}
 
 	p.watchLk.Lock()
-	wg.add(ctx, out)
+	wg.add(ctx, p, key, out)
 	p.watchLk.Unlock()
 	wg.lk.Unlock()
 
@@ -343,7 +343,7 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	wg.Wait()
 }
 
-func (wg *watchGroup) add(ctx context.Context, outCh chan []byte) {
+func (wg *watchGroup) add(ctx context.Context, p *PubsubValueStore, key string, outCh chan []byte) {
 	proxy := make(chan []byte, 1)
 
 	go func() {
@@ -355,8 +355,14 @@ func (wg *watchGroup) add(ctx context.Context, outCh chan []byte) {
 
 			wg.lk.Lock()
 			delete(wg.listeners, outCh)
-			//TODO: watchgroup GC?
-			wg.lk.Unlock()
+
+			//cleanup empty watchgroups
+			p.watchLk.Lock()
+			if _, ok := p.watching[key]; len(wg.listeners) == 0 && ok {
+				close(wg.closing)
+				delete(p.watching, key)
+			}
+			p.watchLk.Unlock()
 
 			close(outCh)
 		}()
