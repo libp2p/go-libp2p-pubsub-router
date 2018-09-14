@@ -26,8 +26,7 @@ type watchGroup struct {
 	lk      sync.RWMutex
 	closing chan struct{}
 
-	listeners map[int64]chan<- []byte
-	n         int64
+	listeners map[chan<- []byte]context.Context
 }
 
 type PubsubValueStore struct {
@@ -188,7 +187,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 	if !ok {
 		wg = &watchGroup{
 			closing:   make(chan struct{}),
-			listeners: map[int64]chan<- []byte{},
+			listeners: map[chan<- []byte]context.Context{},
 		}
 		p.watching[key] = wg
 	}
@@ -276,8 +275,13 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 	}
 
 	sg.lk.RLock()
-	for _, watcher := range sg.listeners {
-		watcher <- data
+	for watcher, ctx := range sg.listeners {
+		select {
+			case watcher <- data:
+			case <-sg.closing:
+				break
+			case <-ctx.Done():
+		}
 	}
 	sg.lk.RUnlock()
 }
@@ -341,17 +345,20 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 
 func (wg *watchGroup) add(ctx context.Context, outCh chan []byte) {
 	proxy := make(chan []byte, 1)
-	n := wg.n
-	wg.listeners[n] = proxy
-	wg.n++
 
 	go func() {
-		defer close(outCh)
+		ctx, cancel := context.WithCancel(ctx)
+		wg.listeners[outCh] = ctx
+
 		defer func() {
+			cancel()
+
 			wg.lk.Lock()
-			delete(wg.listeners, n)
+			delete(wg.listeners, outCh)
 			//TODO: watchgroup GC?
 			wg.lk.Unlock()
+
+			close(outCh)
 		}()
 
 		for {
