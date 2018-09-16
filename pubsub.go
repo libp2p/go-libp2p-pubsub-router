@@ -3,6 +3,7 @@ package namesys
 import (
 	"bytes"
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -23,10 +24,10 @@ import (
 var log = logging.Logger("pubsub-valuestore")
 
 type watchGroup struct {
-	lk      sync.RWMutex
 	closing chan struct{}
 
-	listeners map[chan<- []byte]context.Context
+	// Note: this chan must be buffered, see notifyWatchers
+	listeners map[chan []byte]context.Context
 }
 
 type PubsubValueStore struct {
@@ -43,7 +44,7 @@ type PubsubValueStore struct {
 	mx   sync.Mutex
 	subs map[string]*floodsub.Subscription
 
-	watchLk  sync.RWMutex
+	watchLk  sync.Mutex
 	watching map[string]*watchGroup
 
 	Validator record.Validator
@@ -182,19 +183,6 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 		return nil, err
 	}
 
-	p.watchLk.Lock()
-	wg, ok := p.watching[key]
-	if !ok {
-		wg = &watchGroup{
-			closing:   make(chan struct{}),
-			listeners: map[chan<- []byte]context.Context{},
-		}
-		p.watching[key] = wg
-	}
-	// Lock searchgroup before checking local storage so we don't miss updates
-	wg.lk.Lock()
-	p.watchLk.Unlock()
-
 	out := make(chan []byte, 1)
 	lv, err := p.getLocal(key)
 	if err == nil {
@@ -202,9 +190,56 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 	}
 
 	p.watchLk.Lock()
-	wg.add(ctx, p, key, out)
+	wg, ok := p.watching[key]
+	if !ok {
+		wg = &watchGroup{
+			closing:   make(chan struct{}),
+			listeners: map[chan []byte]context.Context{},
+		}
+		p.watching[key] = wg
+	}
+
+	proxy := make(chan []byte, 1)
+
+	ctx, cancel := context.WithCancel(ctx)
+	wg.listeners[proxy] = ctx
+
+	go func() {
+		defer func() {
+			cancel()
+
+			p.watchLk.Lock()
+			delete(wg.listeners, proxy)
+
+			if _, ok := p.watching[key]; len(wg.listeners) == 0 && ok {
+				close(wg.closing)
+				delete(p.watching, key)
+			}
+			p.watchLk.Unlock()
+
+			close(out)
+		}()
+
+		for {
+			select {
+			case val, ok := <-proxy:
+				if !ok {
+					return
+				}
+
+				// outCh is buffered, so we just put the value or swap it for the newer one
+				select {
+				case out <- val:
+				case <-out:
+					out <- val
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	p.watchLk.Unlock()
-	wg.lk.Unlock()
 
 	return out, nil
 }
@@ -224,9 +259,16 @@ func (p *PubsubValueStore) GetSubscriptions() []string {
 
 // Cancel cancels a topic subscription; returns true if an active
 // subscription was canceled
-func (p *PubsubValueStore) Cancel(name string) bool {
+func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
+
+	p.watchLk.Lock()
+	if _, wok := p.watching[name]; wok {
+		p.watchLk.Unlock()
+		return false, errors.New("key has active subscriptions")
+	}
+	p.watchLk.Unlock()
 
 	sub, ok := p.subs[name]
 	if ok {
@@ -234,14 +276,7 @@ func (p *PubsubValueStore) Cancel(name string) bool {
 		delete(p.subs, name)
 	}
 
-	p.watchLk.Lock()
-	if wg, wok := p.watching[name]; wok {
-		close(wg.closing)
-		delete(p.watching, name)
-	}
-	p.watchLk.Unlock()
-
-	return ok
+	return ok, nil
 }
 
 func (p *PubsubValueStore) handleSubscription(sub *floodsub.Subscription, key string, cancel func()) {
@@ -267,23 +302,20 @@ func (p *PubsubValueStore) handleSubscription(sub *floodsub.Subscription, key st
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
-	p.watchLk.RLock()
+	p.watchLk.Lock()
+	defer p.watchLk.Unlock()
 	sg, ok := p.watching[key]
-	p.watchLk.RUnlock()
 	if !ok {
 		return
 	}
 
-	sg.lk.RLock()
-	for watcher, ctx := range sg.listeners {
+	for watcher := range sg.listeners {
 		select {
-			case watcher <- data:
-			case <-sg.closing:
-				break
-			case <-ctx.Done():
+		case <-watcher:
+			watcher <- data
+		case watcher <- data:
 		}
 	}
-	sg.lk.RUnlock()
 }
 
 // rendezvous with peers in the name topic through provider records
@@ -341,50 +373,4 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	}
 
 	wg.Wait()
-}
-
-func (wg *watchGroup) add(ctx context.Context, p *PubsubValueStore, key string, outCh chan []byte) {
-	proxy := make(chan []byte, 1)
-
-	go func() {
-		ctx, cancel := context.WithCancel(ctx)
-		wg.listeners[outCh] = ctx
-
-		defer func() {
-			cancel()
-
-			wg.lk.Lock()
-			delete(wg.listeners, outCh)
-
-			//cleanup empty watchgroups
-			p.watchLk.Lock()
-			if _, ok := p.watching[key]; len(wg.listeners) == 0 && ok {
-				close(wg.closing)
-				delete(p.watching, key)
-			}
-			p.watchLk.Unlock()
-
-			close(outCh)
-		}()
-
-		for {
-			select {
-			case val, ok := <-proxy:
-				if !ok {
-					return
-				}
-
-				// outCh is buffered, so we just put the value or swap it for the newer one
-				select {
-				case outCh <- val:
-				case <-outCh:
-					outCh <- val
-				}
-			case <-wg.closing:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 }

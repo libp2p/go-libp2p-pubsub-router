@@ -234,6 +234,11 @@ func TestWatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	_, err = vss[1].Cancel(key)
+	if err.Error() != "key has active subscriptions" {
+		t.Fatal("cancel should have failed")
+	}
+
 	v = string(<-ch)
 	if v != "valid for key 2" {
 		t.Errorf("got unexpected value: %s", v)
