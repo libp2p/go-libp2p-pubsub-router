@@ -64,9 +64,9 @@
       "version": "4.1.6"
     },
     {
-      "hash": "QmdKS5YtmuSWKuLLgbHG176mS3VX3AKiyVmaaiAfvgcuch",
+      "hash": "QmaJ6QDUh7JKPPToaUZ4EtUsPBdrbSAG6zMTkzfEvZgz2j",
       "name": "go-libp2p-routing",
-      "version": "2.5.0"
+      "version": "2.6.0"
     },
     {
       "author": "Stebalien",
