@@ -24,10 +24,8 @@ import (
 var log = logging.Logger("pubsub-valuestore")
 
 type watchGroup struct {
-	closing chan struct{}
-
 	// Note: this chan must be buffered, see notifyWatchers
-	listeners map[chan []byte]context.Context
+	listeners map[chan []byte]struct{}
 }
 
 type PubsubValueStore struct {
@@ -193,8 +191,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 	wg, ok := p.watching[key]
 	if !ok {
 		wg = &watchGroup{
-			closing:   make(chan struct{}),
-			listeners: map[chan []byte]context.Context{},
+			listeners: map[chan []byte]struct{}{},
 		}
 		p.watching[key] = wg
 	}
@@ -202,7 +199,7 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 	proxy := make(chan []byte, 1)
 
 	ctx, cancel := context.WithCancel(ctx)
-	wg.listeners[proxy] = ctx
+	wg.listeners[proxy] = struct{}{}
 
 	go func() {
 		defer func() {
@@ -212,7 +209,6 @@ func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...
 			delete(wg.listeners, proxy)
 
 			if _, ok := p.watching[key]; len(wg.listeners) == 0 && ok {
-				close(wg.closing)
 				delete(p.watching, key)
 			}
 			p.watchLk.Unlock()
