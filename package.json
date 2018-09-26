@@ -70,9 +70,9 @@
     },
     {
       "author": "Stebalien",
-      "hash": "QmdELF3gxpecwBauFtZBib2fcnEEAbXiTVA1NSWZjf95Tp",
+      "hash": "QmdrhAjJKSqpykiqkZt7CyVXUyy3R9W4ptmiW49MCWXLeG",
       "name": "go-libp2p-routing-helpers",
-      "version": "0.3.2"
+      "version": "0.3.3"
     },
     {
       "author": "whyrusleeping",
