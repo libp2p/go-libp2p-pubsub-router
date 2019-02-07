@@ -15,6 +15,7 @@ import (
 	u "github.com/ipfs/go-ipfs-util"
 	logging "github.com/ipfs/go-log"
 	p2phost "github.com/libp2p/go-libp2p-host"
+	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
@@ -133,7 +134,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	// record hasn't expired.
 	//
 	// Also, make sure to do this *before* subscribing.
-	p.ps.RegisterTopicValidator(topic, func(ctx context.Context, msg *pubsub.Message) bool {
+	p.ps.RegisterTopicValidator(topic, func(ctx context.Context, _ peer.ID, msg *pubsub.Message) bool {
 		return p.isBetter(key, msg.GetData())
 	})
 
