@@ -70,15 +70,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmX9A6whepz59nU5jU9fbVQGkZQspdWkvcpP7gCihoKnGS",
+      "hash": "Qma3Xp3FXFSP4prirEiRYHJ2tgGE8EAx9i6JLziPLpAQjq",
       "name": "go-libp2p-swarm",
-      "version": "3.0.33"
+      "version": "3.0.34"
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmdmn9FrkJbz6SdmxceJs4nXFRzbM9iAefyQwveGSBejXT",
+      "hash": "QmVzLBPPg4gdyX3XFnNaNDkK4V81ptT5X6WZVFzTUECXMa",
       "name": "go-libp2p-pubsub",
-      "version": "0.11.14"
+      "version": "0.11.15"
     },
     {
       "author": "whyrusleeping",
@@ -92,6 +92,6 @@
   "license": "",
   "name": "go-libp2p-pubsub-router",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.5.15"
+  "version": "0.5.16"
 }
 
