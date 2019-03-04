@@ -13,6 +13,6 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.0.1
 	github.com/libp2p/go-libp2p-record v0.0.1
 	github.com/libp2p/go-libp2p-routing v0.0.1
-	github.com/libp2p/go-libp2p-routing-helpers v0.0.1
+	github.com/libp2p/go-libp2p-routing-helpers v0.0.2
 	github.com/libp2p/go-libp2p-swarm v0.0.1
 )
