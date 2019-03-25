@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	cid "github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
@@ -340,9 +339,8 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	// TODO: consider changing this to `pubsub:...`
 	topic := "floodsub:" + name
 	hash := u.Hash([]byte(topic))
-	rz := cid.NewCidV1(cid.Raw, hash)
 
-	err := cr.Provide(ctx, rz, true)
+	err := cr.Provide(ctx, hash, true)
 	if err != nil {
 		log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
 	}
@@ -351,7 +349,7 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 		for {
 			select {
 			case <-time.After(8 * time.Hour):
-				err := cr.Provide(ctx, rz, true)
+				err := cr.Provide(ctx, hash, true)
 				if err != nil {
 					log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
 				}
@@ -365,7 +363,7 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	defer cancel()
 
 	wg := &sync.WaitGroup{}
-	for pi := range cr.FindProvidersAsync(rzctx, rz, 10) {
+	for pi := range cr.FindProvidersAsync(rzctx, hash, 10) {
 		if pi.ID == host.ID() {
 			continue
 		}
