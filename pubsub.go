@@ -342,12 +342,12 @@ func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phos
 	hash := u.Hash([]byte(topic))
 	rz := cid.NewCidV1(cid.Raw, hash)
 
-	err := cr.Provide(ctx, rz, true)
-	if err != nil {
-		log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
-	}
-
 	go func() {
+		err := cr.Provide(ctx, rz, true)
+		if err != nil {
+			log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
+		}
+
 		for {
 			select {
 			case <-time.After(8 * time.Hour):
