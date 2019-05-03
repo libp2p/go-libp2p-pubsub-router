@@ -82,16 +82,8 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 	// Encode to "/record/base64url(key)"
 	topic := KeyToTopic(key)
 
-	p.mx.Lock()
-	_, bootstraped := p.subs[key]
-
-	if !bootstraped {
-		p.subs[key] = nil
-		p.mx.Unlock()
-
-		bootstrapPubsub(p.ctx, p.cr, p.host, topic)
-	} else {
-		p.mx.Unlock()
+	if err := p.Subscribe(key); err != nil {
+		return err
 	}
 
 	log.Debugf("PubsubPublish: publish value for key", key)
