@@ -94,6 +94,10 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 		p.mx.Unlock()
 	}
 
+	if err := p.Subscribe(key); err != nil {
+		return err
+	}
+
 	log.Debugf("PubsubPublish: publish value for key", key)
 	return p.ps.Publish(topic, value)
 }
