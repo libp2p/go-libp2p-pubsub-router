@@ -5,22 +5,17 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"sync"
-	"time"
-
-	cid "github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
-	u "github.com/ipfs/go-ipfs-util"
 	logging "github.com/ipfs/go-log"
 	p2phost "github.com/libp2p/go-libp2p-host"
 	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
 	routing "github.com/libp2p/go-libp2p-routing"
 	ropts "github.com/libp2p/go-libp2p-routing/options"
+	"sync"
 )
 
 var log = logging.Logger("pubsub-valuestore")
@@ -31,11 +26,9 @@ type watchGroup struct {
 }
 
 type PubsubValueStore struct {
-	ctx  context.Context
-	ds   ds.Datastore
-	host p2phost.Host
-	cr   routing.ContentRouting
-	ps   *pubsub.PubSub
+	ctx context.Context
+	ds  ds.Datastore
+	ps  *pubsub.PubSub
 
 	// Map of keys to subscriptions.
 	//
@@ -64,10 +57,8 @@ func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.Cont
 	return &PubsubValueStore{
 		ctx: ctx,
 
-		ds:   dssync.MutexWrap(ds.NewMapDatastore()),
-		host: host, // needed for pubsub bootstrap
-		cr:   cr,   // needed for pubsub bootstrap
-		ps:   ps,
+		ds: dssync.MutexWrap(ds.NewMapDatastore()),
+		ps: ps,
 
 		subs:     make(map[string]*pubsub.Subscription),
 		watching: make(map[string]*watchGroup),
@@ -137,7 +128,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	}
 
 	p.mx.Lock()
-	existingSub, bootstraped := p.subs[key]
+	existingSub, _ := p.subs[key]
 	if existingSub != nil {
 		p.mx.Unlock()
 		sub.Cancel()
@@ -145,16 +136,11 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	}
 
 	p.subs[key] = sub
-	ctx, cancel := context.WithCancel(p.ctx)
-	go p.handleSubscription(sub, key, cancel)
+	go p.handleSubscription(sub, key)
 	p.mx.Unlock()
 
 	log.Debugf("PubsubResolve: subscribed to %s", key)
 
-	if !bootstraped {
-		// TODO: Deal with publish then resolve case? Cancel behaviour changes.
-		go bootstrapPubsub(ctx, p.cr, p.host, topic)
-	}
 	return nil
 }
 
@@ -287,9 +273,8 @@ func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 	return ok, nil
 }
 
-func (p *PubsubValueStore) handleSubscription(sub *pubsub.Subscription, key string, cancel func()) {
+func (p *PubsubValueStore) handleSubscription(sub *pubsub.Subscription, key string) {
 	defer sub.Cancel()
-	defer cancel()
 
 	for {
 		msg, err := sub.Next(p.ctx)
@@ -324,62 +309,4 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 		case watcher <- data:
 		}
 	}
-}
-
-// rendezvous with peers in the name topic through provider records
-// Note: rendezvous/boostrap should really be handled by the pubsub implementation itself!
-func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host p2phost.Host, name string) {
-	// TODO: consider changing this to `pubsub:...`
-	topic := "floodsub:" + name
-	hash := u.Hash([]byte(topic))
-	rz := cid.NewCidV1(cid.Raw, hash)
-
-	go func() {
-		err := cr.Provide(ctx, rz, true)
-		if err != nil {
-			log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
-		}
-
-		for {
-			select {
-			case <-time.After(8 * time.Hour):
-				err := cr.Provide(ctx, rz, true)
-				if err != nil {
-					log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	rzctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-
-	wg := &sync.WaitGroup{}
-	for pi := range cr.FindProvidersAsync(rzctx, rz, 10) {
-		if pi.ID == host.ID() {
-			continue
-		}
-		wg.Add(1)
-		go func(pi pstore.PeerInfo) {
-			defer wg.Done()
-
-			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-			defer cancel()
-
-			err := host.Connect(ctx, pi)
-			if err != nil {
-				log.Debugf("Error connecting to pubsub peer %s: %s", pi.ID, err.Error())
-				return
-			}
-
-			// delay to let pubsub perform its handshake
-			time.Sleep(time.Millisecond * 250)
-
-			log.Debugf("Connected to pubsub peer %s", pi.ID)
-		}(pi)
-	}
-
-	wg.Wait()
 }
