@@ -87,13 +87,15 @@ func (p *PubsubValueStore) isBetter(key string, val []byte) bool {
 	}
 
 	old, err := p.getLocal(key)
-	if err != nil {
-		// If the old one is invalid, the new one is *always* better.
-		return true
+
+	// Same record is not better
+	if old != nil && bytes.Equal(old, val) {
+		return false
 	}
 
-	// Same record. Possible DoS vector, should consider failing?
-	if bytes.Equal(old, val) {
+	if err != nil {
+		// If the old one is invalid and is not identical to the new record we assume the new one is better.
+		// Perhaps we should have levels of invalid (e.g. EOL vs bad formatting)
 		return true
 	}
 
@@ -117,7 +119,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	// record hasn't expired.
 	//
 	// Also, make sure to do this *before* subscribing.
-	p.ps.RegisterTopicValidator(topic, func(ctx context.Context, _ peer.ID, msg *pubsub.Message) bool {
+	_ = p.ps.RegisterTopicValidator(topic, func(ctx context.Context, _ peer.ID, msg *pubsub.Message) bool {
 		return p.isBetter(key, msg.GetData())
 	})
 
@@ -156,7 +158,7 @@ func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
 
 	// If the old one is invalid, the new one is *always* better.
 	if err := p.Validator.Validate(key, val); err != nil {
-		return nil, err
+		return val, err
 	}
 	return val, nil
 }
