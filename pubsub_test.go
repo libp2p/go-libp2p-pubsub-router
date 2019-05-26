@@ -6,22 +6,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/routing"
+
 	bhost "github.com/libp2p/go-libp2p-blankhost"
-	p2phost "github.com/libp2p/go-libp2p-host"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
-	routing "github.com/libp2p/go-libp2p-routing"
 	rhelper "github.com/libp2p/go-libp2p-routing-helpers"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 )
 
-func newNetHost(ctx context.Context, t *testing.T) p2phost.Host {
+func newNetHost(ctx context.Context, t *testing.T) host.Host {
 	netw := swarmt.GenSwarm(t, ctx)
 	return bhost.NewBlankHost(netw)
 }
 
-func newNetHosts(ctx context.Context, t *testing.T, n int) []p2phost.Host {
-	var out []p2phost.Host
+func newNetHosts(ctx context.Context, t *testing.T, n int) []host.Host {
+	var out []host.Host
 
 	for i := 0; i < n; i++ {
 		h := newNetHost(ctx, t)
