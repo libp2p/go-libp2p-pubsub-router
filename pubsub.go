@@ -5,16 +5,22 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"sync"
+	"time"
+
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/routing"
+
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	record "github.com/libp2p/go-libp2p-record"
+
+	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
+	u "github.com/ipfs/go-ipfs-util"
 	logging "github.com/ipfs/go-log"
-	p2phost "github.com/libp2p/go-libp2p-host"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	record "github.com/libp2p/go-libp2p-record"
-	routing "github.com/libp2p/go-libp2p-routing"
-	ropts "github.com/libp2p/go-libp2p-routing/options"
 	"sync"
 )
 
@@ -53,7 +59,7 @@ func KeyToTopic(key string) string {
 // NewPubsubPublisher constructs a new Publisher that publishes IPNS records through pubsub.
 // The constructor interface is complicated by the need to bootstrap the pubsub topic.
 // This could be greatly simplified if the pubsub implementation handled bootstrap itself
-func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.ContentRouting, ps *pubsub.PubSub, validator record.Validator) *PubsubValueStore {
+func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.ContentRouting, ps *pubsub.PubSub, validator record.Validator) *PubsubValueStore {
 	return &PubsubValueStore{
 		ctx: ctx,
 
@@ -68,7 +74,7 @@ func NewPubsubValueStore(ctx context.Context, host p2phost.Host, cr routing.Cont
 }
 
 // Publish publishes an IPNS record through pubsub with default TTL
-func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) error {
+func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byte, opts ...routing.Option) error {
 	// Record-store keys are arbitrary binary. However, pubsub requires UTF-8 string topic IDs.
 	// Encode to "/record/base64url(key)"
 	topic := KeyToTopic(key)
@@ -163,7 +169,7 @@ func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
 	return val, nil
 }
 
-func (p *PubsubValueStore) GetValue(ctx context.Context, key string, opts ...ropts.Option) ([]byte, error) {
+func (p *PubsubValueStore) GetValue(ctx context.Context, key string, opts ...routing.Option) ([]byte, error) {
 	if err := p.Subscribe(key); err != nil {
 		return nil, err
 	}
@@ -171,7 +177,7 @@ func (p *PubsubValueStore) GetValue(ctx context.Context, key string, opts ...rop
 	return p.getLocal(key)
 }
 
-func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...ropts.Option) (<-chan []byte, error) {
+func (p *PubsubValueStore) SearchValue(ctx context.Context, key string, opts ...routing.Option) (<-chan []byte, error) {
 	if err := p.Subscribe(key); err != nil {
 		return nil, err
 	}
