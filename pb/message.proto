@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package namesys.pb;
+
+message Message {
+	required int32 sessionID = 1;
+	optional int32 type = 2;
+	optional bytes data = 3;
+}
+
+message RequestLatest {
+	 optional string identifier = 1;
+}
+
+message SendLatest {
+	optional bytes data = 1;
+}
+
+message Heads {
+	 repeated bytes heads = 1;
+}
