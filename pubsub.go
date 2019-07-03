@@ -140,16 +140,14 @@ func (p *PubsubValueStore) isBetter(key string, val []byte) (isBetter bool, isEq
 	}
 
 	old, err := p.getLocal(key)
+	if err != nil {
+		// If the old one is invalid, the new one is *always* better.
+		return true, false
+	}
 
 	// Same record is not better
 	if old != nil && bytes.Equal(old, val) {
 		return false, true
-	}
-
-	if err != nil {
-		// If the old one is invalid and is not identical to the new record we assume the new one is better.
-		// Perhaps we should have levels of invalid (e.g. EOL vs bad formatting)
-		return true, false
 	}
 
 	i, err := p.Validator.Select(key, [][]byte{val, old})
@@ -216,8 +214,8 @@ func (p *PubsubValueStore) rebroadcast(key string) {
 	for {
 		select {
 		case <-ticker.C:
-			val, _ := p.getLocal(key)
-			if val != nil {
+			val, err := p.getLocal(key)
+			if err == nil {
 				_ = p.ps.Publish(topic, val)
 			}
 		case <-p.ctx.Done():
@@ -238,7 +236,7 @@ func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
 
 	// If the old one is invalid, the new one is *always* better.
 	if err := p.Validator.Validate(key, val); err != nil {
-		return val, err
+		return nil, err
 	}
 	return val, nil
 }
