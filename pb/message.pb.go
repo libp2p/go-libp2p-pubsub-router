@@ -5,7 +5,6 @@ package namesys_pb
 
 import (
 	fmt "fmt"
-	github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
 	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
@@ -22,69 +21,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type Message struct {
-	SessionID            *int32   `protobuf:"varint,1,req,name=sessionID" json:"sessionID,omitempty"`
-	Type                 *int32   `protobuf:"varint,2,opt,name=type" json:"type,omitempty"`
-	Data                 []byte   `protobuf:"bytes,3,opt,name=data" json:"data,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Message) Reset()         { *m = Message{} }
-func (m *Message) String() string { return proto.CompactTextString(m) }
-func (*Message) ProtoMessage()    {}
-func (*Message) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33c57e4bae7b9afd, []int{0}
-}
-func (m *Message) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Message) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Message.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *Message) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Message.Merge(m, src)
-}
-func (m *Message) XXX_Size() int {
-	return m.Size()
-}
-func (m *Message) XXX_DiscardUnknown() {
-	xxx_messageInfo_Message.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Message proto.InternalMessageInfo
-
-func (m *Message) GetSessionID() int32 {
-	if m != nil && m.SessionID != nil {
-		return *m.SessionID
-	}
-	return 0
-}
-
-func (m *Message) GetType() int32 {
-	if m != nil && m.Type != nil {
-		return *m.Type
-	}
-	return 0
-}
-
-func (m *Message) GetData() []byte {
-	if m != nil {
-		return m.Data
-	}
-	return nil
-}
-
 type RequestLatest struct {
 	Identifier           *string  `protobuf:"bytes,1,opt,name=identifier" json:"identifier,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -96,7 +32,7 @@ func (m *RequestLatest) Reset()         { *m = RequestLatest{} }
 func (m *RequestLatest) String() string { return proto.CompactTextString(m) }
 func (*RequestLatest) ProtoMessage()    {}
 func (*RequestLatest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33c57e4bae7b9afd, []int{1}
+	return fileDescriptor_33c57e4bae7b9afd, []int{0}
 }
 func (m *RequestLatest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -132,114 +68,21 @@ func (m *RequestLatest) GetIdentifier() string {
 	return ""
 }
 
-type SendLatest struct {
-	Data                 []byte   `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *SendLatest) Reset()         { *m = SendLatest{} }
-func (m *SendLatest) String() string { return proto.CompactTextString(m) }
-func (*SendLatest) ProtoMessage()    {}
-func (*SendLatest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_33c57e4bae7b9afd, []int{2}
-}
-func (m *SendLatest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *SendLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_SendLatest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *SendLatest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SendLatest.Merge(m, src)
-}
-func (m *SendLatest) XXX_Size() int {
-	return m.Size()
-}
-func (m *SendLatest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SendLatest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_SendLatest proto.InternalMessageInfo
-
-func (m *SendLatest) GetData() []byte {
-	if m != nil {
-		return m.Data
-	}
-	return nil
-}
-
 func init() {
-	proto.RegisterType((*Message)(nil), "namesys.pb.Message")
 	proto.RegisterType((*RequestLatest)(nil), "namesys.pb.RequestLatest")
-	proto.RegisterType((*SendLatest)(nil), "namesys.pb.SendLatest")
 }
 
 func init() { proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd) }
 
 var fileDescriptor_33c57e4bae7b9afd = []byte{
-	// 181 bytes of a gzipped FileDescriptorProto
+	// 106 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x4d, 0x2d, 0x2e,
 	0x4e, 0x4c, 0x4f, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0xca, 0x4b, 0xcc, 0x4d, 0x2d,
-	0xae, 0x2c, 0xd6, 0x2b, 0x48, 0x52, 0xf2, 0xe7, 0x62, 0xf7, 0x85, 0x48, 0x0a, 0xc9, 0x70, 0x71,
-	0x16, 0xa7, 0x16, 0x17, 0x67, 0xe6, 0xe7, 0x79, 0xba, 0x48, 0x30, 0x2a, 0x30, 0x69, 0xb0, 0x06,
-	0x21, 0x04, 0x84, 0x84, 0xb8, 0x58, 0x4a, 0x2a, 0x0b, 0x52, 0x25, 0x98, 0x14, 0x18, 0x35, 0x58,
-	0x83, 0xc0, 0x6c, 0x90, 0x58, 0x4a, 0x62, 0x49, 0xa2, 0x04, 0xb3, 0x02, 0xa3, 0x06, 0x4f, 0x10,
-	0x98, 0xad, 0xa4, 0xcf, 0xc5, 0x1b, 0x94, 0x5a, 0x58, 0x9a, 0x5a, 0x5c, 0xe2, 0x93, 0x58, 0x92,
-	0x5a, 0x5c, 0x22, 0x24, 0xc7, 0xc5, 0x95, 0x99, 0x92, 0x9a, 0x57, 0x92, 0x99, 0x96, 0x99, 0x5a,
-	0x24, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x19, 0x84, 0x24, 0xa2, 0xa4, 0xc0, 0xc5, 0x15, 0x9c, 0x9a,
-	0x97, 0x02, 0x55, 0x0d, 0x33, 0x92, 0x11, 0x61, 0xa4, 0x13, 0xcf, 0x89, 0x47, 0x72, 0x8c, 0x17,
-	0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x08, 0x08, 0x00, 0x00, 0xff, 0xff, 0xef, 0x81, 0x61,
-	0xa2, 0xcd, 0x00, 0x00, 0x00,
-}
-
-func (m *Message) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Message) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.SessionID == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("sessionID")
-	} else {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintMessage(dAtA, i, uint64(*m.SessionID))
-	}
-	if m.Type != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintMessage(dAtA, i, uint64(*m.Type))
-	}
-	if m.Data != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintMessage(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	0xae, 0x2c, 0xd6, 0x2b, 0x48, 0x52, 0xd2, 0xe7, 0xe2, 0x0d, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e,
+	0xf1, 0x49, 0x2c, 0x49, 0x2d, 0x2e, 0x11, 0x92, 0xe3, 0xe2, 0xca, 0x4c, 0x49, 0xcd, 0x2b, 0xc9,
+	0x4c, 0xcb, 0x4c, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x12, 0x71, 0xe2, 0x39,
+	0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x01, 0x01, 0x00, 0x00,
+	0xff, 0xff, 0xba, 0x07, 0x1b, 0x54, 0x5a, 0x00, 0x00, 0x00,
 }
 
 func (m *RequestLatest) Marshal() (dAtA []byte, err error) {
@@ -269,33 +112,6 @@ func (m *RequestLatest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *SendLatest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *SendLatest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Data != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMessage(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
 func encodeVarintMessage(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -305,28 +121,6 @@ func encodeVarintMessage(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *Message) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.SessionID != nil {
-		n += 1 + sovMessage(uint64(*m.SessionID))
-	}
-	if m.Type != nil {
-		n += 1 + sovMessage(uint64(*m.Type))
-	}
-	if m.Data != nil {
-		l = len(m.Data)
-		n += 1 + l + sovMessage(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
 func (m *RequestLatest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -335,22 +129,6 @@ func (m *RequestLatest) Size() (n int) {
 	_ = l
 	if m.Identifier != nil {
 		l = len(*m.Identifier)
-		n += 1 + l + sovMessage(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *SendLatest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Data != nil {
-		l = len(m.Data)
 		n += 1 + l + sovMessage(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -371,139 +149,6 @@ func sovMessage(x uint64) (n int) {
 }
 func sozMessage(x uint64) (n int) {
 	return sovMessage(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *Message) Unmarshal(dAtA []byte) error {
-	var hasFields [1]uint64
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowMessage
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Message: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Message: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SessionID", wireType)
-			}
-			var v int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMessage
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.SessionID = &v
-			hasFields[0] |= uint64(0x00000001)
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
-			}
-			var v int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMessage
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Type = &v
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMessage
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthMessage
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipMessage(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("sessionID")
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *RequestLatest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -566,94 +211,6 @@ func (m *RequestLatest) Unmarshal(dAtA []byte) error {
 			}
 			s := string(dAtA[iNdEx:postIndex])
 			m.Identifier = &s
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipMessage(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *SendLatest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowMessage
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: SendLatest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: SendLatest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMessage
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthMessage
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthMessage
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
-			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
