@@ -14,4 +14,4 @@ require (
 	github.com/libp2p/go-libp2p-swarm v0.1.0
 )
 
-replace github.com/libp2p/go-libp2p-pubsub v0.1.0 => ../../libp2p/go-libp2p-pubsub
+replace github.com/libp2p/go-libp2p-pubsub v0.1.0 => github.com/aschmahmann/go-libp2p-pubsub v0.0.4-0.20190701154427-d91967657ece

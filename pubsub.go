@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -409,20 +411,25 @@ func (p *PubsubValueStore) handleNewMsgs(sub *pubsub.Subscription, key string) (
 }
 
 func (p *PubsubValueStore) handleNewPeer(sub *pubsub.Subscription, key string) ([]byte, error) {
-	peer, err := sub.NextPeerJoin(p.ctx)
-	if err != nil {
-		if err != context.Canceled {
-			log.Warningf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
+	peerEvt, err := sub.NextPeerEvent(p.ctx)
+	for {
+		if err != nil {
+			if err != context.Canceled {
+				log.Warningf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
+			}
+			return nil, err
 		}
-		return nil, err
+		if peerEvt.Type == pubsub.PEER_JOIN {
+			break
+		}
 	}
 
 	peerCtx, _ := context.WithTimeout(p.ctx, time.Second*10)
-	s, err := p.host.NewStream(peerCtx, peer, OnJoinProto)
+	s, err := p.host.NewStream(peerCtx, peerEvt.Peer, OnJoinProto)
 	if err != nil {
 		return nil, err
 	}
-	defer net.FullClose(s)
+	defer helpers.FullClose(s)
 
 	msg := pb.RequestLatest{Identifier: &key}
 	msgData, err := msg.Marshal()
