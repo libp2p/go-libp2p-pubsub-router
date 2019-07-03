@@ -6,6 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -15,16 +18,13 @@ import (
 	"github.com/libp2p/go-libp2p-net"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 	record "github.com/libp2p/go-libp2p-record"
 
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	logging "github.com/ipfs/go-log"
-	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
-	"io"
-	"sync"
-	"time"
 )
 
 var log = logging.Logger("pubsub-valuestore")
