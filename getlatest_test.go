@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
 )
@@ -36,6 +37,9 @@ func TestGetLatestProtocolTrip(t *testing.T) {
 	hosts := newNetHosts(ctx, t, 2)
 	connect(t, hosts[0], hosts[1])
 
+	// wait for hosts to get connected
+	time.Sleep(time.Millisecond * 100)
+
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
 	h1 := newGetLatestProtocol(hosts[0], d1.Lookup)
 
@@ -53,6 +57,9 @@ func TestGetLatestProtocolNil(t *testing.T) {
 	hosts := newNetHosts(ctx, t, 2)
 	connect(t, hosts[0], hosts[1])
 
+	// wait for hosts to get connected
+	time.Sleep(time.Millisecond * 100)
+
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
 	h1 := newGetLatestProtocol(hosts[0], d1.Lookup)
 
@@ -69,6 +76,9 @@ func TestGetLatestProtocolRepeated(t *testing.T) {
 
 	hosts := newNetHosts(ctx, t, 2)
 	connect(t, hosts[0], hosts[1])
+
+	// wait for hosts to get connected
+	time.Sleep(time.Millisecond * 100)
 
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
 	h1 := newGetLatestProtocol(hosts[0], d1.Lookup)
