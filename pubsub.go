@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
+	u "github.com/ipfs/go-ipfs-util"
 	logging "github.com/ipfs/go-log"
 )
 
@@ -34,6 +36,7 @@ type watchGroup struct {
 type PubsubValueStore struct {
 	ctx context.Context
 	ds  ds.Datastore
+	cr  routing.ContentRouting
 	ps  *pubsub.PubSub
 
 	host      host.Host
@@ -43,6 +46,9 @@ type PubsubValueStore struct {
 	rebroadcastInterval     time.Duration
 
 	// Map of keys to subscriptions.
+	//
+	// If a key is present but the subscription is nil, we've bootstrapped
+	// but haven't subscribed.
 	mx   sync.Mutex
 	subs map[string]*pubsub.Subscription
 
@@ -67,6 +73,8 @@ func KeyToTopic(key string) string {
 func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.ContentRouting, ps *pubsub.PubSub, validator record.Validator) *PubsubValueStore {
 	psValueStore := &PubsubValueStore{
 		ctx: ctx,
+
+		cr: cr, // needed for pubsub bootstrap
 
 		ds:                      dssync.MutexWrap(ds.NewMapDatastore()),
 		ps:                      ps,
@@ -163,7 +171,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	}
 
 	p.mx.Lock()
-	existingSub, _ := p.subs[key]
+	existingSub, bootstrapped := p.subs[key]
 	if existingSub != nil {
 		p.mx.Unlock()
 		sub.Cancel()
@@ -174,10 +182,15 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	p.cancels[key] = cancel
 
 	p.subs[key] = sub
-	go p.handleSubscription(ctx, sub, key)
+	go p.handleSubscription(ctx, sub, key, cancel)
 	p.mx.Unlock()
 
 	log.Debugf("PubsubResolve: subscribed to %s", key)
+
+	if !bootstrapped {
+		// TODO: Deal with publish then resolve case? Cancel behaviour changes.
+		go bootstrapPubsub(ctx, p.cr, p.host, topic)
+	}
 
 	return nil
 }
@@ -359,8 +372,9 @@ func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 	return ok, nil
 }
 
-func (p *PubsubValueStore) handleSubscription(ctx context.Context, sub *pubsub.Subscription, key string) {
+func (p *PubsubValueStore) handleSubscription(ctx context.Context, sub *pubsub.Subscription, key string, cancel func()) {
 	defer sub.Cancel()
+	defer cancel()
 
 	newMsg := make(chan []byte)
 	go func() {
@@ -480,4 +494,62 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 		case watcher <- data:
 		}
 	}
+}
+
+// rendezvous with peers in the name topic through provider records
+// Note: rendezvous/boostrap should really be handled by the pubsub implementation itself!
+func bootstrapPubsub(ctx context.Context, cr routing.ContentRouting, host host.Host, name string) {
+	// TODO: consider changing this to `pubsub:...`
+	topic := "floodsub:" + name
+	hash := u.Hash([]byte(topic))
+	rz := cid.NewCidV1(cid.Raw, hash)
+
+	go func() {
+		err := cr.Provide(ctx, rz, true)
+		if err != nil {
+			log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
+		}
+
+		for {
+			select {
+			case <-time.After(8 * time.Hour):
+				err := cr.Provide(ctx, rz, true)
+				if err != nil {
+					log.Warningf("bootstrapPubsub: error providing rendezvous for %s: %s", topic, err.Error())
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	rzctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	wg := &sync.WaitGroup{}
+	for pi := range cr.FindProvidersAsync(rzctx, rz, 10) {
+		if pi.ID == host.ID() {
+			continue
+		}
+		wg.Add(1)
+		go func(pi peer.AddrInfo) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+			defer cancel()
+
+			err := host.Connect(ctx, pi)
+			if err != nil {
+				log.Debugf("Error connecting to pubsub peer %s: %s", pi.ID, err.Error())
+				return
+			}
+
+			// delay to let pubsub perform its handshake
+			time.Sleep(time.Millisecond * 250)
+
+			log.Debugf("Connected to pubsub peer %s", pi.ID)
+		}(pi)
+	}
+
+	wg.Wait()
 }
