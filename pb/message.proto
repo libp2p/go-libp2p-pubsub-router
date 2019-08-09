@@ -1,12 +1,17 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package namesys.pb;
 
 message RequestLatest {
-	optional string identifier = 1;
+	string identifier = 1;
 }
 
 message RespondLatest {
-	optional bytes data = 1;
-	optional bool nodata = 2;
+	bytes data = 1;
+	StatusCode status = 2;
+	enum StatusCode {
+		SUCCESS = 0;
+		NOT_FOUND = 1;
+		ERR = 2;
+	}
 }

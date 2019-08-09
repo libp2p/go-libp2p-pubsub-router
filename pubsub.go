@@ -89,7 +89,7 @@ func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.Content
 		Validator: validator,
 	}
 
-	psValueStore.getLatest = newGetLatestProtocol(host, psValueStore.getLocal)
+	psValueStore.getLatest = newGetLatestProtocol(ctx, host, psValueStore.getLocal)
 
 	go psValueStore.rebroadcast(ctx)
 
@@ -476,7 +476,7 @@ func (p *PubsubValueStore) handleNewPeer(ctx context.Context, sub *pubsub.Subscr
 		}
 	}
 
-	return p.getLatest.Send(ctx, pid, key)
+	return p.getLatest.Get(ctx, pid, key)
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {

@@ -1,8 +1,8 @@
 package namesys
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"io"
 	"time"
 
@@ -17,27 +17,33 @@ import (
 	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 )
 
+var GetLatestErr = errors.New("get-latest: received error")
+
 type getLatestProtocol struct {
+	ctx  context.Context
 	host host.Host
 }
 
-func newGetLatestProtocol(host host.Host, getLocal func(key string) ([]byte, error)) *getLatestProtocol {
-	p := &getLatestProtocol{host}
+func newGetLatestProtocol(ctx context.Context, host host.Host, getLocal func(key string) ([]byte, error)) *getLatestProtocol {
+	p := &getLatestProtocol{ctx, host}
 
 	host.SetStreamHandler(PSGetLatestProto, func(s network.Stream) {
-		p.Receive(s, getLocal)
+		p.receive(s, getLocal)
 	})
 
 	return p
 }
 
-func (p *getLatestProtocol) Receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
-	r := ggio.NewDelimitedReader(s, 1<<20)
+func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
 	msg := &pb.RequestLatest{}
-	if err := r.ReadMsg(msg); err != nil {
+	if err := readMsg(p.ctx, s, msg); err != nil {
 		if err != io.EOF {
-			s.Reset()
 			log.Infof("error reading request from %s: %s", s.Conn().RemotePeer(), err)
+			respProto := pb.RespondLatest{Status: pb.RespondLatest_ERR}
+			if err := writeMsg(p.ctx, s, &respProto); err != nil {
+				return
+			}
+			helpers.FullClose(s)
 		} else {
 			// Just be nice. They probably won't read this
 			// but it doesn't hurt to send it.
@@ -46,25 +52,22 @@ func (p *getLatestProtocol) Receive(s network.Stream, getLocal func(key string) 
 		return
 	}
 
-	response, err := getLocal(*msg.Identifier)
+	response, err := getLocal(msg.Identifier)
 	var respProto pb.RespondLatest
 
-	if err != nil || response == nil {
-		nodata := true
-		respProto = pb.RespondLatest{Nodata: &nodata}
+	if err != nil {
+		respProto = pb.RespondLatest{Status: pb.RespondLatest_NOT_FOUND}
 	} else {
 		respProto = pb.RespondLatest{Data: response}
 	}
 
-	if err := writeBytes(s, &respProto); err != nil {
-		s.Reset()
-		log.Infof("error writing response to %s: %s", s.Conn().RemotePeer(), err)
+	if err := writeMsg(p.ctx, s, &respProto); err != nil {
 		return
 	}
 	helpers.FullClose(s)
 }
 
-func (p getLatestProtocol) Send(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
+func (p getLatestProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
 	peerCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
@@ -72,38 +75,75 @@ func (p getLatestProtocol) Send(ctx context.Context, pid peer.ID, key string) ([
 	if err != nil {
 		return nil, err
 	}
-
-	if err := s.SetDeadline(time.Now().Add(time.Second * 5)); err != nil {
-		return nil, err
-	}
-
 	defer helpers.FullClose(s)
 
-	msg := pb.RequestLatest{Identifier: &key}
+	msg := &pb.RequestLatest{Identifier: key}
 
-	if err := writeBytes(s, &msg); err != nil {
-		s.Reset()
+	if err := writeMsg(ctx, s, msg); err != nil {
 		return nil, err
 	}
-
 	s.Close()
 
-	r := ggio.NewDelimitedReader(s, 1<<20)
 	response := &pb.RespondLatest{}
-	if err := r.ReadMsg(response); err != nil {
+	if err := readMsg(ctx, s, response); err != nil {
 		return nil, err
 	}
 
-	return response.Data, nil
+	switch response.Status {
+	case pb.RespondLatest_SUCCESS:
+		return response.Data, nil
+	case pb.RespondLatest_NOT_FOUND:
+		return nil, nil
+	case pb.RespondLatest_ERR:
+		return nil, GetLatestErr
+	default:
+		return nil, errors.New("get-latest: received unknown status code")
+	}
 }
 
-func writeBytes(w io.Writer, msg proto.Message) error {
-	bufw := bufio.NewWriter(w)
-	wc := ggio.NewDelimitedWriter(bufw)
+func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
+	done := make(chan error)
+	go func() {
+		wc := ggio.NewDelimitedWriter(s)
 
-	if err := wc.WriteMsg(msg); err != nil {
-		return err
+		if err := wc.WriteMsg(msg); err != nil {
+			done <- err
+			return
+		}
+
+		done <- nil
+	}()
+
+	var retErr error
+	select {
+	case retErr = <-done:
+	case <-ctx.Done():
+		retErr = ctx.Err()
 	}
 
-	return bufw.Flush()
+	if retErr != nil {
+		s.Reset()
+		log.Infof("error writing response to %s: %s", s.Conn().RemotePeer(), retErr)
+	}
+	return retErr
+}
+
+func readMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
+	done := make(chan error)
+	go func() {
+		r := ggio.NewDelimitedReader(s, 1<<20)
+		if err := r.ReadMsg(msg); err != nil {
+			done <- err
+			return
+		}
+		done <- nil
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		s.Reset()
+		return ctx.Err()
+	}
 }
