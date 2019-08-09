@@ -3,7 +3,6 @@ package namesys
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -37,18 +36,12 @@ func newGetLatestProtocol(ctx context.Context, host host.Host, getLocal func(key
 func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
 	msg := &pb.RequestLatest{}
 	if err := readMsg(p.ctx, s, msg); err != nil {
-		if err != io.EOF {
-			log.Infof("error reading request from %s: %s", s.Conn().RemotePeer(), err)
-			respProto := pb.RespondLatest{Status: pb.RespondLatest_ERR}
-			if err := writeMsg(p.ctx, s, &respProto); err != nil {
-				return
-			}
-			helpers.FullClose(s)
-		} else {
-			// Just be nice. They probably won't read this
-			// but it doesn't hurt to send it.
-			s.Close()
+		log.Infof("error reading request from %s: %s", s.Conn().RemotePeer(), err)
+		respProto := pb.RespondLatest{Status: pb.RespondLatest_ERR}
+		if err := writeMsg(p.ctx, s, &respProto); err != nil {
+			return
 		}
+		helpers.FullClose(s)
 		return
 	}
 
