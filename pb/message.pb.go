@@ -68,21 +68,80 @@ func (m *RequestLatest) GetIdentifier() string {
 	return ""
 }
 
+type RespondLatest struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
+	Nodata               *bool    `protobuf:"varint,2,opt,name=nodata" json:"nodata,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RespondLatest) Reset()         { *m = RespondLatest{} }
+func (m *RespondLatest) String() string { return proto.CompactTextString(m) }
+func (*RespondLatest) ProtoMessage()    {}
+func (*RespondLatest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33c57e4bae7b9afd, []int{1}
+}
+func (m *RespondLatest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RespondLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RespondLatest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RespondLatest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RespondLatest.Merge(m, src)
+}
+func (m *RespondLatest) XXX_Size() int {
+	return m.Size()
+}
+func (m *RespondLatest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RespondLatest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RespondLatest proto.InternalMessageInfo
+
+func (m *RespondLatest) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *RespondLatest) GetNodata() bool {
+	if m != nil && m.Nodata != nil {
+		return *m.Nodata
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*RequestLatest)(nil), "namesys.pb.RequestLatest")
+	proto.RegisterType((*RespondLatest)(nil), "namesys.pb.RespondLatest")
 }
 
 func init() { proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd) }
 
 var fileDescriptor_33c57e4bae7b9afd = []byte{
-	// 106 bytes of a gzipped FileDescriptorProto
+	// 145 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x4d, 0x2d, 0x2e,
 	0x4e, 0x4c, 0x4f, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0xca, 0x4b, 0xcc, 0x4d, 0x2d,
 	0xae, 0x2c, 0xd6, 0x2b, 0x48, 0x52, 0xd2, 0xe7, 0xe2, 0x0d, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e,
 	0xf1, 0x49, 0x2c, 0x49, 0x2d, 0x2e, 0x11, 0x92, 0xe3, 0xe2, 0xca, 0x4c, 0x49, 0xcd, 0x2b, 0xc9,
-	0x4c, 0xcb, 0x4c, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x12, 0x71, 0xe2, 0x39,
-	0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x01, 0x01, 0x00, 0x00,
-	0xff, 0xff, 0xba, 0x07, 0x1b, 0x54, 0x5a, 0x00, 0x00, 0x00,
+	0x4c, 0xcb, 0x4c, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x12, 0x51, 0xb2, 0x06,
+	0x69, 0x28, 0x2e, 0xc8, 0xcf, 0x4b, 0x81, 0x6a, 0x10, 0xe2, 0x62, 0x49, 0x49, 0x2c, 0x49, 0x04,
+	0x2b, 0xe5, 0x09, 0x02, 0xb3, 0x85, 0xc4, 0xb8, 0xd8, 0xf2, 0xf2, 0xc1, 0xa2, 0x4c, 0x0a, 0x8c,
+	0x1a, 0x1c, 0x41, 0x50, 0x9e, 0x13, 0xcf, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e,
+	0x78, 0x24, 0xc7, 0x08, 0x08, 0x00, 0x00, 0xff, 0xff, 0x21, 0x3f, 0xdb, 0xfb, 0x97, 0x00, 0x00,
+	0x00,
 }
 
 func (m *RequestLatest) Marshal() (dAtA []byte, err error) {
@@ -112,6 +171,43 @@ func (m *RequestLatest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *RespondLatest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RespondLatest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Data != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMessage(dAtA, i, uint64(len(m.Data)))
+		i += copy(dAtA[i:], m.Data)
+	}
+	if m.Nodata != nil {
+		dAtA[i] = 0x10
+		i++
+		if *m.Nodata {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintMessage(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -130,6 +226,25 @@ func (m *RequestLatest) Size() (n int) {
 	if m.Identifier != nil {
 		l = len(*m.Identifier)
 		n += 1 + l + sovMessage(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RespondLatest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Data != nil {
+		l = len(m.Data)
+		n += 1 + l + sovMessage(uint64(l))
+	}
+	if m.Nodata != nil {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -212,6 +327,115 @@ func (m *RequestLatest) Unmarshal(dAtA []byte) error {
 			s := string(dAtA[iNdEx:postIndex])
 			m.Identifier = &s
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMessage(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMessage
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMessage
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RespondLatest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMessage
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RespondLatest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RespondLatest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMessage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMessage
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMessage
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
+			if m.Data == nil {
+				m.Data = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nodata", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMessage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.Nodata = &b
 		default:
 			iNdEx = preIndex
 			skippy, err := skipMessage(dAtA[iNdEx:])

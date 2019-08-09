@@ -4,21 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-libp2p-core/routing"
-	"github.com/libp2p/go-libp2p-net"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 	record "github.com/libp2p/go-libp2p-record"
 
 	ds "github.com/ipfs/go-datastore"
@@ -29,7 +24,7 @@ import (
 
 var log = logging.Logger("pubsub-valuestore")
 
-const OnJoinProto = protocol.ID("/psOnJoin/0.0.1")
+const PSGetLatestProto = protocol.ID("/pubsub-get-latest/0.0.1")
 
 type watchGroup struct {
 	// Note: this chan must be buffered, see notifyWatchers
@@ -41,17 +36,17 @@ type PubsubValueStore struct {
 	ds  ds.Datastore
 	ps  *pubsub.PubSub
 
-	host host.Host
+	host      host.Host
+	getLatest *getLatestProtocol
 
 	rebroadcastInitialDelay time.Duration
 	rebroadcastInterval     time.Duration
 
 	// Map of keys to subscriptions.
-	//
-	// If a key is present but the subscription is nil, we've bootstrapped
-	// but haven't subscribed.
 	mx   sync.Mutex
 	subs map[string]*pubsub.Subscription
+
+	cancels map[string]context.CancelFunc
 
 	watchLk  sync.Mutex
 	watching map[string]*watchGroup
@@ -77,36 +72,19 @@ func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.Content
 		ps:                      ps,
 		host:                    host,
 		rebroadcastInitialDelay: 100 * time.Millisecond,
-		rebroadcastInterval:     time.Second,
+		rebroadcastInterval:     time.Minute * 10,
 
 		subs:     make(map[string]*pubsub.Subscription),
+		cancels:  make(map[string]context.CancelFunc),
 		watching: make(map[string]*watchGroup),
 
 		Validator: validator,
 	}
 
-	host.SetStreamHandler(OnJoinProto, func(s net.Stream) {
-		defer net.FullClose(s)
+	psValueStore.getLatest = newGetLatestProtocol(host, psValueStore.getLocal)
 
-		msgData, err := readBytes(s)
-		if err != nil {
-			return
-		}
+	go psValueStore.rebroadcast(ctx)
 
-		msg := pb.RequestLatest{}
-		if msg.Unmarshal(msgData) != nil {
-			return
-		}
-
-		response, err := psValueStore.getLocal(*msg.Identifier)
-		if err != nil {
-			return
-		}
-
-		if writeBytes(s, response) != nil {
-			return
-		}
-	})
 	return psValueStore
 }
 
@@ -121,37 +99,39 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 	}
 
 	log.Debugf("PubsubPublish: publish value for key", key)
-	done := make(chan error, 1)
-	go func() {
-		done <- p.ps.Publish(topic, value)
-	}()
 
 	select {
-	case err := <-done:
+	case err := <-p.psPublishChannel(topic, value):
 		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-func (p *PubsubValueStore) isBetter(key string, val []byte) (isBetter bool, isEqual bool) {
+// compare compares the input value with the current value.
+// Returns 0 if equal, greater than 0 if better, less than 0 if worse
+func (p *PubsubValueStore) compare(key string, val []byte) int {
 	if p.Validator.Validate(key, val) != nil {
-		return false, false
+		return -1
 	}
 
 	old, err := p.getLocal(key)
 	if err != nil {
 		// If the old one is invalid, the new one is *always* better.
-		return true, false
+		return 1
 	}
 
 	// Same record is not better
 	if old != nil && bytes.Equal(old, val) {
-		return false, true
+		return 0
 	}
 
 	i, err := p.Validator.Select(key, [][]byte{val, old})
-	return err == nil && i == 0, false
+	if err == nil && i == 0 {
+		return 1
+	} else {
+		return -1
+	}
 }
 
 func (p *PubsubValueStore) Subscribe(key string) error {
@@ -172,17 +152,13 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	// Also, make sure to do this *before* subscribing.
 	myID := p.host.ID()
 	_ = p.ps.RegisterTopicValidator(topic, func(ctx context.Context, src peer.ID, msg *pubsub.Message) bool {
-		isBetter, isEqual := p.isBetter(key, msg.GetData())
+		cmp := p.compare(key, msg.GetData())
 
-		if src == myID && isEqual {
-			return true
-		}
-		return isBetter
+		return cmp > 0 || cmp == 0 && src == myID
 	})
 
 	sub, err := p.ps.Subscribe(topic)
 	if err != nil {
-		p.mx.Unlock()
 		return err
 	}
 
@@ -194,18 +170,19 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 		return nil
 	}
 
+	ctx, cancel := context.WithCancel(p.ctx)
+	p.cancels[key] = cancel
+
 	p.subs[key] = sub
-	go p.handleSubscription(sub, key)
+	go p.handleSubscription(ctx, sub, key)
 	p.mx.Unlock()
 
-	go p.rebroadcast(key)
 	log.Debugf("PubsubResolve: subscribed to %s", key)
 
 	return nil
 }
 
-func (p *PubsubValueStore) rebroadcast(key string) {
-	topic := KeyToTopic(key)
+func (p *PubsubValueStore) rebroadcast(ctx context.Context) {
 	time.Sleep(p.rebroadcastInitialDelay)
 
 	ticker := time.NewTicker(p.rebroadcastInterval)
@@ -214,14 +191,38 @@ func (p *PubsubValueStore) rebroadcast(key string) {
 	for {
 		select {
 		case <-ticker.C:
-			val, err := p.getLocal(key)
-			if err == nil {
-				_ = p.ps.Publish(topic, val)
+			var keys []string
+			p.mx.Lock()
+			keys = make([]string, 0, len(p.subs))
+			for p, _ := range p.subs {
+				keys = append(keys, p)
 			}
-		case <-p.ctx.Done():
+			p.mx.Unlock()
+			if len(keys) > 0 {
+				for _, k := range keys {
+					val, err := p.getLocal(k)
+					if err == nil {
+						topic := KeyToTopic(k)
+						select {
+						case <-p.psPublishChannel(topic, val):
+						case <-ctx.Done():
+							return
+						}
+					}
+				}
+			}
+		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (p *PubsubValueStore) psPublishChannel(topic string, value []byte) chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- p.ps.Publish(topic, value)
+	}()
+	return done
 }
 
 func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
@@ -350,44 +351,74 @@ func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 		delete(p.subs, name)
 	}
 
+	if cancel, ok := p.cancels[name]; ok {
+		cancel()
+		delete(p.cancels, name)
+	}
+
 	return ok, nil
 }
 
-func (p *PubsubValueStore) handleSubscription(sub *pubsub.Subscription, key string) {
+func (p *PubsubValueStore) handleSubscription(ctx context.Context, sub *pubsub.Subscription, key string) {
 	defer sub.Cancel()
 
 	newMsg := make(chan []byte)
 	go func() {
+		defer close(newMsg)
 		for {
-			data, err := p.handleNewMsgs(sub, key)
+			data, err := p.handleNewMsgs(ctx, sub, key)
 			if err != nil {
-				close(newMsg)
 				return
 			}
-			newMsg <- data
+			select {
+			case newMsg <- data:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
 	newPeerData := make(chan []byte)
 	go func() {
+		defer close(newPeerData)
 		for {
-			data, err := p.handleNewPeer(sub, key)
-			if err != nil {
-				close(newPeerData)
-				return
+			data, err := p.handleNewPeer(ctx, sub, key)
+			if err == nil {
+				if data != nil {
+					select {
+					case newPeerData <- data:
+					case <-ctx.Done():
+						return
+					}
+				}
+			} else {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					log.Errorf("PubsubPeerJoin: error interacting with new peer", err)
+				}
 			}
-			newPeerData <- data
 		}
 	}()
 
 	for {
 		var data []byte
+		var ok bool
 		select {
-		case data = <-newMsg:
-		case data = <-newPeerData:
+		case data, ok = <-newMsg:
+			if !ok {
+				return
+			}
+		case data, ok = <-newPeerData:
+			if !ok {
+				return
+			}
+		case <-ctx.Done():
+			return
 		}
 
-		if isBetter, _ := p.isBetter(key, data); isBetter {
+		if p.compare(key, data) > 0 {
 			err := p.ds.Put(dshelp.NewKeyFromBinary([]byte(key)), data)
 			if err != nil {
 				log.Warningf("PubsubResolve: error writing update for %s: %s", key, err)
@@ -397,8 +428,8 @@ func (p *PubsubValueStore) handleSubscription(sub *pubsub.Subscription, key stri
 	}
 }
 
-func (p *PubsubValueStore) handleNewMsgs(sub *pubsub.Subscription, key string) ([]byte, error) {
-	msg, err := sub.Next(p.ctx)
+func (p *PubsubValueStore) handleNewMsgs(ctx context.Context, sub *pubsub.Subscription, key string) ([]byte, error) {
+	msg, err := sub.Next(ctx)
 	if err != nil {
 		if err != context.Canceled {
 			log.Warningf("PubsubResolve: subscription error in %s: %s", key, err.Error())
@@ -408,45 +439,30 @@ func (p *PubsubValueStore) handleNewMsgs(sub *pubsub.Subscription, key string) (
 	return msg.GetData(), nil
 }
 
-func (p *PubsubValueStore) handleNewPeer(sub *pubsub.Subscription, key string) ([]byte, error) {
-	peerEvt, err := sub.NextPeerEvent(p.ctx)
+func (p *PubsubValueStore) handleNewPeer(ctx context.Context, sub *pubsub.Subscription, key string) ([]byte, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	var pid peer.ID
+
 	for {
+		peerEvt, err := sub.NextPeerEvent(ctx)
 		if err != nil {
 			if err != context.Canceled {
 				log.Warningf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
 			}
 			return nil, err
 		}
-		if peerEvt.Type == pubsub.PEER_JOIN {
+		if peerEvt.Type == pubsub.PeerJoin {
+			pid = peerEvt.Peer
 			break
 		}
 	}
 
-	peerCtx, _ := context.WithTimeout(p.ctx, time.Second*10)
-	s, err := p.host.NewStream(peerCtx, peerEvt.Peer, OnJoinProto)
-	if err != nil {
-		return nil, err
-	}
-	defer helpers.FullClose(s)
-
-	msg := pb.RequestLatest{Identifier: &key}
-	msgData, err := msg.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	if writeBytes(s, msgData) != nil {
-		return nil, err
-	}
-
-	s.Close()
-
-	response, err := readBytes(s)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return p.getLatest.Send(ctx, pid, key)
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
@@ -464,52 +480,4 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 		case watcher <- data:
 		}
 	}
-}
-
-const sizeLengthBytes = 8
-
-// readNumBytesFromReader reads a specific number of bytes from a Reader, or returns an error
-func readNumBytesFromReader(r io.Reader, numBytes uint64) ([]byte, error) {
-	data := make([]byte, numBytes)
-	n, err := io.ReadFull(r, data)
-	if err != nil {
-		return data, err
-	} else if uint64(n) != numBytes {
-		return data, fmt.Errorf("Could not read full length from stream")
-	}
-	return data, nil
-}
-
-func readBytes(r io.Reader) ([]byte, error) {
-	// Protocol: uint64 MessageLength followed by byte[] MarshalledMessage
-
-	sizeData, err := readNumBytesFromReader(r, sizeLengthBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	size := binary.LittleEndian.Uint64(sizeData)
-	data, err := readNumBytesFromReader(r, size)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func writeBytes(w io.Writer, data []byte) error {
-	size := len(data)
-
-	// Protocol: uint64 MessageLength followed by byte[] MarshalledMessage
-	sizeData := make([]byte, sizeLengthBytes)
-	binary.LittleEndian.PutUint64(sizeData, uint64(size))
-
-	_, err := w.Write(sizeData)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(data)
-
-	return err
 }
