@@ -3,15 +3,11 @@ package namesys
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
-
-	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 )
 
 func connect(t *testing.T, a, b host.Host) {
@@ -72,42 +68,6 @@ func TestGetLatestProtocolNotFound(t *testing.T) {
 
 	getLatest(t, ctx, h1, h2, "key", nil)
 	getLatest(t, ctx, h2, h1, "key", []byte("value1"))
-}
-
-func TestGetLatestProtocolErr(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	hosts := newNetHosts(ctx, t, 2)
-	connect(t, hosts[0], hosts[1])
-
-	// wait for hosts to get connected
-	time.Sleep(time.Millisecond * 100)
-
-	d1 := &datastore{make(map[string][]byte)}
-	h1 := newGetLatestProtocol(ctx, hosts[0], d1.Lookup)
-
-	// bad send protocol to force an error
-	s, err := hosts[1].NewStream(ctx, h1.host.ID(), PSGetLatestProto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer helpers.FullClose(s)
-
-	buf := make([]byte, binary.MaxVarintLen64)
-	binary.PutUvarint(buf, ^uint64(0))
-	if _, err := s.Write(buf); err != nil {
-		t.Fatal(err)
-	}
-
-	response := &pb.RespondLatest{}
-	if err := readMsg(ctx, s, response); err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Status != pb.RespondLatest_ERR {
-		t.Fatal("should have received an error")
-	}
 }
 
 func TestGetLatestProtocolRepeated(t *testing.T) {

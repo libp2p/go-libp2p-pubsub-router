@@ -16,8 +16,6 @@ import (
 	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 )
 
-var GetLatestErr = errors.New("get-latest: received error")
-
 type getLatestProtocol struct {
 	ctx  context.Context
 	host host.Host
@@ -34,14 +32,12 @@ func newGetLatestProtocol(ctx context.Context, host host.Host, getLocal func(key
 }
 
 func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
+	defer helpers.FullClose(s)
+
 	msg := &pb.RequestLatest{}
 	if err := readMsg(p.ctx, s, msg); err != nil {
 		log.Infof("error reading request from %s: %s", s.Conn().RemotePeer(), err)
-		respProto := pb.RespondLatest{Status: pb.RespondLatest_ERR}
-		if err := writeMsg(p.ctx, s, &respProto); err != nil {
-			return
-		}
-		helpers.FullClose(s)
+		s.Reset()
 		return
 	}
 
@@ -57,7 +53,6 @@ func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) 
 	if err := writeMsg(p.ctx, s, &respProto); err != nil {
 		return
 	}
-	helpers.FullClose(s)
 }
 
 func (p getLatestProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
@@ -87,8 +82,6 @@ func (p getLatestProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]
 		return response.Data, nil
 	case pb.RespondLatest_NOT_FOUND:
 		return nil, nil
-	case pb.RespondLatest_ERR:
-		return nil, GetLatestErr
 	default:
 		return nil, errors.New("get-latest: received unknown status code")
 	}

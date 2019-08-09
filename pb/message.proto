@@ -12,6 +12,5 @@ message RespondLatest {
 	enum StatusCode {
 		SUCCESS = 0;
 		NOT_FOUND = 1;
-		ERR = 2;
 	}
 }
