@@ -65,7 +65,9 @@ func (p *getLatestProtocol) Receive(s network.Stream, getLocal func(key string) 
 }
 
 func (p getLatestProtocol) Send(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
-	peerCtx, _ := context.WithTimeout(ctx, time.Second*10)
+	peerCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
 	s, err := p.host.NewStream(peerCtx, pid, PSGetLatestProto)
 	if err != nil {
 		return nil, err
