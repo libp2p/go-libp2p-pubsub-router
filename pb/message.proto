@@ -7,10 +7,10 @@ message RequestLatest {
 }
 
 message RespondLatest {
-	bytes data = 1;
-	StatusCode status = 2;
+	StatusCode status = 1;
 	enum StatusCode {
 		SUCCESS = 0;
 		NOT_FOUND = 1;
 	}
+	bytes data = 2;
 }

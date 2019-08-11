@@ -88,7 +88,7 @@ func (p getLatestProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]
 }
 
 func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
-	done := make(chan error)
+	done := make(chan error, 1)
 	go func() {
 		wc := ggio.NewDelimitedWriter(s)
 
@@ -115,7 +115,7 @@ func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
 }
 
 func readMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
-	done := make(chan error)
+	done := make(chan error, 1)
 	go func() {
 		r := ggio.NewDelimitedReader(s, 1<<20)
 		if err := r.ReadMsg(msg); err != nil {
