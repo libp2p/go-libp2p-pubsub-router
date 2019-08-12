@@ -30,7 +30,7 @@ func (d *datastore) Lookup(key string) ([]byte, error) {
 	return v, nil
 }
 
-func TestGetLatestProtocolTrip(t *testing.T) {
+func TestFetchProtocolTrip(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -41,16 +41,16 @@ func TestGetLatestProtocolTrip(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
-	h1 := newGetLatestProtocol(ctx, hosts[0], d1.Lookup)
+	h1 := newFetchProtocol(ctx, hosts[0], d1.Lookup)
 
 	d2 := &datastore{map[string][]byte{"key": []byte("value2")}}
-	h2 := newGetLatestProtocol(ctx, hosts[1], d2.Lookup)
+	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
-	getLatest(t, ctx, h1, h2, "key", []byte("value2"))
-	getLatest(t, ctx, h2, h1, "key", []byte("value1"))
+	fetchCheck(t, ctx, h1, h2, "key", []byte("value2"))
+	fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
 }
 
-func TestGetLatestProtocolNotFound(t *testing.T) {
+func TestFetchProtocolNotFound(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -61,16 +61,16 @@ func TestGetLatestProtocolNotFound(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
-	h1 := newGetLatestProtocol(ctx, hosts[0], d1.Lookup)
+	h1 := newFetchProtocol(ctx, hosts[0], d1.Lookup)
 
 	d2 := &datastore{make(map[string][]byte)}
-	h2 := newGetLatestProtocol(ctx, hosts[1], d2.Lookup)
+	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
-	getLatest(t, ctx, h1, h2, "key", nil)
-	getLatest(t, ctx, h2, h1, "key", []byte("value1"))
+	fetchCheck(t, ctx, h1, h2, "key", nil)
+	fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
 }
 
-func TestGetLatestProtocolRepeated(t *testing.T) {
+func TestFetchProtocolRepeated(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -81,19 +81,19 @@ func TestGetLatestProtocolRepeated(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	d1 := &datastore{map[string][]byte{"key": []byte("value1")}}
-	h1 := newGetLatestProtocol(ctx, hosts[0], d1.Lookup)
+	h1 := newFetchProtocol(ctx, hosts[0], d1.Lookup)
 
 	d2 := &datastore{make(map[string][]byte)}
-	h2 := newGetLatestProtocol(ctx, hosts[1], d2.Lookup)
+	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
 	for i := 0; i < 10; i++ {
-		getLatest(t, ctx, h1, h2, "key", nil)
-		getLatest(t, ctx, h2, h1, "key", []byte("value1"))
+		fetchCheck(t, ctx, h1, h2, "key", nil)
+		fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
 	}
 }
 
-func getLatest(t *testing.T, ctx context.Context,
-	requester *getLatestProtocol, responder *getLatestProtocol, key string, expected []byte) {
+func fetchCheck(t *testing.T, ctx context.Context,
+	requester *fetchProtocol, responder *fetchProtocol, key string, expected []byte) {
 	data, err := requester.Get(ctx, responder.host.ID(), key)
 	if err != nil {
 		t.Fatal(err)

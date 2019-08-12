@@ -12,26 +12,29 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 
 	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
 )
 
-type getLatestProtocol struct {
+const FetchProtoID = protocol.ID("/libp2p/fetch/0.0.1")
+
+type fetchProtocol struct {
 	ctx  context.Context
 	host host.Host
 }
 
-func newGetLatestProtocol(ctx context.Context, host host.Host, getLocal func(key string) ([]byte, error)) *getLatestProtocol {
-	p := &getLatestProtocol{ctx, host}
+func newFetchProtocol(ctx context.Context, host host.Host, getLocal func(key string) ([]byte, error)) *fetchProtocol {
+	p := &fetchProtocol{ctx, host}
 
-	host.SetStreamHandler(PSGetLatestProto, func(s network.Stream) {
+	host.SetStreamHandler(FetchProtoID, func(s network.Stream) {
 		p.receive(s, getLocal)
 	})
 
 	return p
 }
 
-func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
+func (p *fetchProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
 	defer helpers.FullClose(s)
 
 	msg := &pb.RequestLatest{}
@@ -55,11 +58,11 @@ func (p *getLatestProtocol) receive(s network.Stream, getLocal func(key string) 
 	}
 }
 
-func (p getLatestProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
+func (p fetchProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
 	peerCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	s, err := p.host.NewStream(peerCtx, pid, PSGetLatestProto)
+	s, err := p.host.NewStream(peerCtx, pid, FetchProtoID)
 	if err != nil {
 		return nil, err
 	}

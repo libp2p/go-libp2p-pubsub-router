@@ -11,7 +11,6 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-libp2p-core/routing"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -26,8 +25,6 @@ import (
 
 var log = logging.Logger("pubsub-valuestore")
 
-const PSGetLatestProto = protocol.ID("/pubsub-get-latest/0.0.1")
-
 type watchGroup struct {
 	// Note: this chan must be buffered, see notifyWatchers
 	listeners map[chan []byte]struct{}
@@ -39,8 +36,8 @@ type PubsubValueStore struct {
 	cr  routing.ContentRouting
 	ps  *pubsub.PubSub
 
-	host      host.Host
-	getLatest *getLatestProtocol
+	host  host.Host
+	fetch *fetchProtocol
 
 	rebroadcastInitialDelay time.Duration
 	rebroadcastInterval     time.Duration
@@ -89,7 +86,7 @@ func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.Content
 		Validator: validator,
 	}
 
-	psValueStore.getLatest = newGetLatestProtocol(ctx, host, psValueStore.getLocal)
+	psValueStore.fetch = newFetchProtocol(ctx, host, psValueStore.getLocal)
 
 	go psValueStore.rebroadcast(ctx)
 
@@ -476,7 +473,7 @@ func (p *PubsubValueStore) handleNewPeer(ctx context.Context, sub *pubsub.Subscr
 		}
 	}
 
-	return p.getLatest.Get(ctx, pid, key)
+	return p.fetch.Get(ctx, pid, key)
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
