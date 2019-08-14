@@ -24,17 +24,19 @@ type fetchProtocol struct {
 	host host.Host
 }
 
-func newFetchProtocol(ctx context.Context, host host.Host, getLocal func(key string) ([]byte, error)) *fetchProtocol {
+type getValue func(key string) ([]byte, error)
+
+func newFetchProtocol(ctx context.Context, host host.Host, getData getValue) *fetchProtocol {
 	p := &fetchProtocol{ctx, host}
 
 	host.SetStreamHandler(FetchProtoID, func(s network.Stream) {
-		p.receive(s, getLocal)
+		p.receive(s, getData)
 	})
 
 	return p
 }
 
-func (p *fetchProtocol) receive(s network.Stream, getLocal func(key string) ([]byte, error)) {
+func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	defer helpers.FullClose(s)
 
 	msg := &pb.RequestLatest{}
@@ -44,7 +46,7 @@ func (p *fetchProtocol) receive(s network.Stream, getLocal func(key string) ([]b
 		return
 	}
 
-	response, err := getLocal(msg.Identifier)
+	response, err := getData(msg.Identifier)
 	var respProto pb.RespondLatest
 
 	if err != nil {
