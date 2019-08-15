@@ -39,7 +39,7 @@ func newFetchProtocol(ctx context.Context, host host.Host, getData getValue) *fe
 func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	defer helpers.FullClose(s)
 
-	msg := &pb.RequestLatest{}
+	msg := &pb.FetchRequest{}
 	if err := readMsg(p.ctx, s, msg); err != nil {
 		log.Infof("error reading request from %s: %s", s.Conn().RemotePeer(), err)
 		s.Reset()
@@ -47,12 +47,12 @@ func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	}
 
 	response, err := getData(msg.Identifier)
-	var respProto pb.RespondLatest
+	var respProto pb.FetchResponse
 
 	if err != nil {
-		respProto = pb.RespondLatest{Status: pb.RespondLatest_NOT_FOUND}
+		respProto = pb.FetchResponse{Status: pb.FetchResponse_NOT_FOUND}
 	} else {
-		respProto = pb.RespondLatest{Data: response}
+		respProto = pb.FetchResponse{Data: response}
 	}
 
 	if err := writeMsg(p.ctx, s, &respProto); err != nil {
@@ -70,22 +70,22 @@ func (p fetchProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte
 	}
 	defer helpers.FullClose(s)
 
-	msg := &pb.RequestLatest{Identifier: key}
+	msg := &pb.FetchRequest{Identifier: key}
 
 	if err := writeMsg(ctx, s, msg); err != nil {
 		return nil, err
 	}
 	s.Close()
 
-	response := &pb.RespondLatest{}
+	response := &pb.FetchResponse{}
 	if err := readMsg(ctx, s, response); err != nil {
 		return nil, err
 	}
 
 	switch response.Status {
-	case pb.RespondLatest_SUCCESS:
+	case pb.FetchResponse_OK:
 		return response.Data, nil
-	case pb.RespondLatest_NOT_FOUND:
+	case pb.FetchResponse_NOT_FOUND:
 		return nil, nil
 	default:
 		return nil, errors.New("get-latest: received unknown status code")

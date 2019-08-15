@@ -21,50 +21,50 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type RespondLatest_StatusCode int32
+type FetchResponse_StatusCode int32
 
 const (
-	RespondLatest_SUCCESS   RespondLatest_StatusCode = 0
-	RespondLatest_NOT_FOUND RespondLatest_StatusCode = 1
+	FetchResponse_OK        FetchResponse_StatusCode = 0
+	FetchResponse_NOT_FOUND FetchResponse_StatusCode = 1
 )
 
-var RespondLatest_StatusCode_name = map[int32]string{
-	0: "SUCCESS",
+var FetchResponse_StatusCode_name = map[int32]string{
+	0: "OK",
 	1: "NOT_FOUND",
 }
 
-var RespondLatest_StatusCode_value = map[string]int32{
-	"SUCCESS":   0,
+var FetchResponse_StatusCode_value = map[string]int32{
+	"OK":        0,
 	"NOT_FOUND": 1,
 }
 
-func (x RespondLatest_StatusCode) String() string {
-	return proto.EnumName(RespondLatest_StatusCode_name, int32(x))
+func (x FetchResponse_StatusCode) String() string {
+	return proto.EnumName(FetchResponse_StatusCode_name, int32(x))
 }
 
-func (RespondLatest_StatusCode) EnumDescriptor() ([]byte, []int) {
+func (FetchResponse_StatusCode) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_33c57e4bae7b9afd, []int{1, 0}
 }
 
-type RequestLatest struct {
+type FetchRequest struct {
 	Identifier           string   `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RequestLatest) Reset()         { *m = RequestLatest{} }
-func (m *RequestLatest) String() string { return proto.CompactTextString(m) }
-func (*RequestLatest) ProtoMessage()    {}
-func (*RequestLatest) Descriptor() ([]byte, []int) {
+func (m *FetchRequest) Reset()         { *m = FetchRequest{} }
+func (m *FetchRequest) String() string { return proto.CompactTextString(m) }
+func (*FetchRequest) ProtoMessage()    {}
+func (*FetchRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_33c57e4bae7b9afd, []int{0}
 }
-func (m *RequestLatest) XXX_Unmarshal(b []byte) error {
+func (m *FetchRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RequestLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *FetchRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RequestLatest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_FetchRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -74,45 +74,45 @@ func (m *RequestLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return b[:n], nil
 	}
 }
-func (m *RequestLatest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RequestLatest.Merge(m, src)
+func (m *FetchRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FetchRequest.Merge(m, src)
 }
-func (m *RequestLatest) XXX_Size() int {
+func (m *FetchRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *RequestLatest) XXX_DiscardUnknown() {
-	xxx_messageInfo_RequestLatest.DiscardUnknown(m)
+func (m *FetchRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FetchRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RequestLatest proto.InternalMessageInfo
+var xxx_messageInfo_FetchRequest proto.InternalMessageInfo
 
-func (m *RequestLatest) GetIdentifier() string {
+func (m *FetchRequest) GetIdentifier() string {
 	if m != nil {
 		return m.Identifier
 	}
 	return ""
 }
 
-type RespondLatest struct {
-	Status               RespondLatest_StatusCode `protobuf:"varint,1,opt,name=status,proto3,enum=namesys.pb.RespondLatest_StatusCode" json:"status,omitempty"`
+type FetchResponse struct {
+	Status               FetchResponse_StatusCode `protobuf:"varint,1,opt,name=status,proto3,enum=namesys.pb.FetchResponse_StatusCode" json:"status,omitempty"`
 	Data                 []byte                   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
 }
 
-func (m *RespondLatest) Reset()         { *m = RespondLatest{} }
-func (m *RespondLatest) String() string { return proto.CompactTextString(m) }
-func (*RespondLatest) ProtoMessage()    {}
-func (*RespondLatest) Descriptor() ([]byte, []int) {
+func (m *FetchResponse) Reset()         { *m = FetchResponse{} }
+func (m *FetchResponse) String() string { return proto.CompactTextString(m) }
+func (*FetchResponse) ProtoMessage()    {}
+func (*FetchResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_33c57e4bae7b9afd, []int{1}
 }
-func (m *RespondLatest) XXX_Unmarshal(b []byte) error {
+func (m *FetchResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RespondLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *FetchResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RespondLatest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_FetchResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -122,26 +122,26 @@ func (m *RespondLatest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return b[:n], nil
 	}
 }
-func (m *RespondLatest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RespondLatest.Merge(m, src)
+func (m *FetchResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FetchResponse.Merge(m, src)
 }
-func (m *RespondLatest) XXX_Size() int {
+func (m *FetchResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *RespondLatest) XXX_DiscardUnknown() {
-	xxx_messageInfo_RespondLatest.DiscardUnknown(m)
+func (m *FetchResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_FetchResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RespondLatest proto.InternalMessageInfo
+var xxx_messageInfo_FetchResponse proto.InternalMessageInfo
 
-func (m *RespondLatest) GetStatus() RespondLatest_StatusCode {
+func (m *FetchResponse) GetStatus() FetchResponse_StatusCode {
 	if m != nil {
 		return m.Status
 	}
-	return RespondLatest_SUCCESS
+	return FetchResponse_OK
 }
 
-func (m *RespondLatest) GetData() []byte {
+func (m *FetchResponse) GetData() []byte {
 	if m != nil {
 		return m.Data
 	}
@@ -149,31 +149,31 @@ func (m *RespondLatest) GetData() []byte {
 }
 
 func init() {
-	proto.RegisterEnum("namesys.pb.RespondLatest_StatusCode", RespondLatest_StatusCode_name, RespondLatest_StatusCode_value)
-	proto.RegisterType((*RequestLatest)(nil), "namesys.pb.RequestLatest")
-	proto.RegisterType((*RespondLatest)(nil), "namesys.pb.RespondLatest")
+	proto.RegisterEnum("namesys.pb.FetchResponse_StatusCode", FetchResponse_StatusCode_name, FetchResponse_StatusCode_value)
+	proto.RegisterType((*FetchRequest)(nil), "namesys.pb.FetchRequest")
+	proto.RegisterType((*FetchResponse)(nil), "namesys.pb.FetchResponse")
 }
 
 func init() { proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd) }
 
 var fileDescriptor_33c57e4bae7b9afd = []byte{
-	// 205 bytes of a gzipped FileDescriptorProto
+	// 201 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x4d, 0x2d, 0x2e,
 	0x4e, 0x4c, 0x4f, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0xca, 0x4b, 0xcc, 0x4d, 0x2d,
-	0xae, 0x2c, 0xd6, 0x2b, 0x48, 0x52, 0xd2, 0xe7, 0xe2, 0x0d, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e,
-	0xf1, 0x49, 0x2c, 0x49, 0x2d, 0x2e, 0x11, 0x92, 0xe3, 0xe2, 0xca, 0x4c, 0x49, 0xcd, 0x2b, 0xc9,
-	0x4c, 0xcb, 0x4c, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x12, 0x51, 0xea, 0x66,
-	0x04, 0xe9, 0x28, 0x2e, 0xc8, 0xcf, 0x4b, 0x81, 0xea, 0xb0, 0xe1, 0x62, 0x2b, 0x2e, 0x49, 0x2c,
-	0x29, 0x2d, 0x06, 0xab, 0xe6, 0x33, 0x52, 0xd1, 0x43, 0x98, 0xaf, 0x87, 0xa2, 0x54, 0x2f, 0x18,
-	0xac, 0xce, 0x39, 0x3f, 0x25, 0x35, 0x08, 0xaa, 0x47, 0x48, 0x88, 0x8b, 0x25, 0x25, 0xb1, 0x24,
-	0x51, 0x82, 0x49, 0x81, 0x51, 0x83, 0x27, 0x08, 0xcc, 0x56, 0xd2, 0xe0, 0xe2, 0x42, 0xa8, 0x14,
-	0xe2, 0xe6, 0x62, 0x0f, 0x0e, 0x75, 0x76, 0x76, 0x0d, 0x0e, 0x16, 0x60, 0x10, 0xe2, 0xe5, 0xe2,
-	0xf4, 0xf3, 0x0f, 0x89, 0x77, 0xf3, 0x0f, 0xf5, 0x73, 0x11, 0x60, 0x74, 0xe2, 0x39, 0xf1, 0x48,
-	0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x93, 0xd8, 0xc0, 0xfe, 0x33, 0x06,
-	0x04, 0x00, 0x00, 0xff, 0xff, 0x2d, 0x05, 0x6e, 0x5c, 0xf0, 0x00, 0x00, 0x00,
+	0xae, 0x2c, 0xd6, 0x2b, 0x48, 0x52, 0xd2, 0xe3, 0xe2, 0x71, 0x4b, 0x2d, 0x49, 0xce, 0x08, 0x4a,
+	0x2d, 0x2c, 0x4d, 0x2d, 0x2e, 0x11, 0x92, 0xe3, 0xe2, 0xca, 0x4c, 0x49, 0xcd, 0x2b, 0xc9, 0x4c,
+	0xcb, 0x4c, 0x2d, 0x92, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x42, 0x12, 0x51, 0x6a, 0x63, 0xe4,
+	0xe2, 0x85, 0x6a, 0x28, 0x2e, 0xc8, 0xcf, 0x2b, 0x4e, 0x15, 0xb2, 0xe1, 0x62, 0x2b, 0x2e, 0x49,
+	0x2c, 0x29, 0x2d, 0x06, 0xab, 0xe6, 0x33, 0x52, 0xd1, 0x43, 0x18, 0xaf, 0x87, 0xa2, 0x54, 0x2f,
+	0x18, 0xac, 0xce, 0x39, 0x3f, 0x25, 0x35, 0x08, 0xaa, 0x47, 0x48, 0x88, 0x8b, 0x25, 0x25, 0xb1,
+	0x24, 0x51, 0x82, 0x49, 0x81, 0x51, 0x83, 0x27, 0x08, 0xcc, 0x56, 0x52, 0xe6, 0xe2, 0x42, 0xa8,
+	0x14, 0x62, 0xe3, 0x62, 0xf2, 0xf7, 0x16, 0x60, 0x10, 0xe2, 0xe5, 0xe2, 0xf4, 0xf3, 0x0f, 0x89,
+	0x77, 0xf3, 0x0f, 0xf5, 0x73, 0x11, 0x60, 0x74, 0xe2, 0x39, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23,
+	0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x93, 0xd8, 0xc0, 0x3e, 0x33, 0x06, 0x04, 0x00, 0x00, 0xff,
+	0xff, 0xe9, 0x3b, 0xba, 0x5b, 0xea, 0x00, 0x00, 0x00,
 }
 
-func (m *RequestLatest) Marshal() (dAtA []byte, err error) {
+func (m *FetchRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -183,7 +183,7 @@ func (m *RequestLatest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RequestLatest) MarshalTo(dAtA []byte) (int, error) {
+func (m *FetchRequest) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -200,7 +200,7 @@ func (m *RequestLatest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *RespondLatest) Marshal() (dAtA []byte, err error) {
+func (m *FetchResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -210,7 +210,7 @@ func (m *RespondLatest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RespondLatest) MarshalTo(dAtA []byte) (int, error) {
+func (m *FetchResponse) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -241,7 +241,7 @@ func encodeVarintMessage(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *RequestLatest) Size() (n int) {
+func (m *FetchRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -257,7 +257,7 @@ func (m *RequestLatest) Size() (n int) {
 	return n
 }
 
-func (m *RespondLatest) Size() (n int) {
+func (m *FetchResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -289,7 +289,7 @@ func sovMessage(x uint64) (n int) {
 func sozMessage(x uint64) (n int) {
 	return sovMessage(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *RequestLatest) Unmarshal(dAtA []byte) error {
+func (m *FetchRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -312,10 +312,10 @@ func (m *RequestLatest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RequestLatest: wiretype end group for non-group")
+			return fmt.Errorf("proto: FetchRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RequestLatest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: FetchRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -375,7 +375,7 @@ func (m *RequestLatest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *RespondLatest) Unmarshal(dAtA []byte) error {
+func (m *FetchResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -398,10 +398,10 @@ func (m *RespondLatest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RespondLatest: wiretype end group for non-group")
+			return fmt.Errorf("proto: FetchResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RespondLatest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: FetchResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -418,7 +418,7 @@ func (m *RespondLatest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Status |= RespondLatest_StatusCode(b&0x7F) << shift
+				m.Status |= FetchResponse_StatusCode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

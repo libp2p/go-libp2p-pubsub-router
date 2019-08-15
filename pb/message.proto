@@ -2,14 +2,14 @@ syntax = "proto3";
 
 package namesys.pb;
 
-message RequestLatest {
+message FetchRequest {
 	string identifier = 1;
 }
 
-message RespondLatest {
+message FetchResponse {
 	StatusCode status = 1;
 	enum StatusCode {
-		SUCCESS = 0;
+		OK = 0;
 		NOT_FOUND = 1;
 	}
 	bytes data = 2;
