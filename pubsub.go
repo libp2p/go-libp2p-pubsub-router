@@ -193,7 +193,11 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 }
 
 func (p *PubsubValueStore) rebroadcast(ctx context.Context) {
-	time.Sleep(p.rebroadcastInitialDelay)
+	select {
+	case <-time.After(p.rebroadcastInitialDelay):
+	case <-ctx.Done():
+		return
+	}
 
 	ticker := time.NewTicker(p.rebroadcastInterval)
 	defer ticker.Stop()
