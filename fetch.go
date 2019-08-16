@@ -60,7 +60,7 @@ func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	}
 }
 
-func (p fetchProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
+func (p fetchProtocol) Fetch(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
 	peerCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
@@ -88,7 +88,7 @@ func (p fetchProtocol) Get(ctx context.Context, pid peer.ID, key string) ([]byte
 	case pb.FetchResponse_NOT_FOUND:
 		return nil, nil
 	default:
-		return nil, errors.New("get-latest: received unknown status code")
+		return nil, errors.New("fetch: received unknown status code")
 	}
 }
 

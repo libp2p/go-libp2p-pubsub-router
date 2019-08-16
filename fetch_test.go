@@ -94,7 +94,7 @@ func TestFetchProtocolRepeated(t *testing.T) {
 
 func fetchCheck(t *testing.T, ctx context.Context,
 	requester *fetchProtocol, responder *fetchProtocol, key string, expected []byte) {
-	data, err := requester.Get(ctx, responder.host.ID(), key)
+	data, err := requester.Fetch(ctx, responder.host.ID(), key)
 	if err != nil {
 		t.Fatal(err)
 	}

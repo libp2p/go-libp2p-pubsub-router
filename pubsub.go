@@ -473,7 +473,7 @@ func (p *PubsubValueStore) handleNewPeer(ctx context.Context, sub *pubsub.Subscr
 		}
 	}
 
-	return p.fetch.Get(ctx, pid, key)
+	return p.fetch.Fetch(ctx, pid, key)
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {

@@ -138,7 +138,7 @@ func TestEarlyPublish(t *testing.T) {
 		}
 	}
 
-	// Wait for Get Latest protocol to retrieve data
+	// Wait for Fetch protocol to retrieve data
 	time.Sleep(time.Second * 1)
 	for i, vs := range vss {
 		checkValue(ctx, t, i, vs, key, val)
