@@ -60,7 +60,7 @@ func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	}
 }
 
-func (p fetchProtocol) Fetch(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
+func (p *fetchProtocol) Fetch(ctx context.Context, pid peer.ID, key string) ([]byte, error) {
 	peerCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
