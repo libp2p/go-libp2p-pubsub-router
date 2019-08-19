@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
+	"fmt"
+	"github.com/ipfs/go-cid"
 	"sync"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
 
-	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
@@ -31,11 +31,16 @@ type watchGroup struct {
 }
 
 type PubsubValueStore struct {
-	ctx  context.Context
-	ds   ds.Datastore
-	host host.Host
-	cr   routing.ContentRouting
-	ps   *pubsub.PubSub
+	ctx context.Context
+	ds  ds.Datastore
+	cr  routing.ContentRouting
+	ps  *pubsub.PubSub
+
+	host  host.Host
+	fetch *fetchProtocol
+
+	rebroadcastInitialDelay time.Duration
+	rebroadcastInterval     time.Duration
 
 	// Map of keys to subscriptions.
 	//
@@ -43,6 +48,8 @@ type PubsubValueStore struct {
 	// but haven't subscribed.
 	mx   sync.Mutex
 	subs map[string]*pubsub.Subscription
+
+	cancels map[string]context.CancelFunc
 
 	watchLk  sync.Mutex
 	watching map[string]*watchGroup
@@ -61,19 +68,29 @@ func KeyToTopic(key string) string {
 // The constructor interface is complicated by the need to bootstrap the pubsub topic.
 // This could be greatly simplified if the pubsub implementation handled bootstrap itself
 func NewPubsubValueStore(ctx context.Context, host host.Host, cr routing.ContentRouting, ps *pubsub.PubSub, validator record.Validator) *PubsubValueStore {
-	return &PubsubValueStore{
+	psValueStore := &PubsubValueStore{
 		ctx: ctx,
 
-		ds:   dssync.MutexWrap(ds.NewMapDatastore()),
-		host: host, // needed for pubsub bootstrap
-		cr:   cr,   // needed for pubsub bootstrap
-		ps:   ps,
+		cr: cr, // needed for pubsub bootstrap
+
+		ds:                      dssync.MutexWrap(ds.NewMapDatastore()),
+		ps:                      ps,
+		host:                    host,
+		rebroadcastInitialDelay: 100 * time.Millisecond,
+		rebroadcastInterval:     time.Minute * 10,
 
 		subs:     make(map[string]*pubsub.Subscription),
+		cancels:  make(map[string]context.CancelFunc),
 		watching: make(map[string]*watchGroup),
 
 		Validator: validator,
 	}
+
+	psValueStore.fetch = newFetchProtocol(ctx, host, psValueStore.getLocal)
+
+	go psValueStore.rebroadcast(ctx)
+
+	return psValueStore
 }
 
 // Publish publishes an IPNS record through pubsub with default TTL
@@ -87,27 +104,39 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 	}
 
 	log.Debugf("PubsubPublish: publish value for key", key)
-	return p.ps.Publish(topic, value)
+
+	select {
+	case err := <-p.psPublishChannel(topic, value):
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
-func (p *PubsubValueStore) isBetter(key string, val []byte) bool {
+// compare compares the input value with the current value.
+// Returns 0 if equal, greater than 0 if better, less than 0 if worse
+func (p *PubsubValueStore) compare(key string, val []byte) int {
 	if p.Validator.Validate(key, val) != nil {
-		return false
+		return -1
 	}
 
 	old, err := p.getLocal(key)
 	if err != nil {
 		// If the old one is invalid, the new one is *always* better.
-		return true
+		return 1
 	}
 
-	// Same record. Possible DoS vector, should consider failing?
-	if bytes.Equal(old, val) {
-		return true
+	// Same record is not better
+	if old != nil && bytes.Equal(old, val) {
+		return 0
 	}
 
 	i, err := p.Validator.Select(key, [][]byte{val, old})
-	return err == nil && i == 0
+	if err == nil && i == 0 {
+		return 1
+	} else {
+		return -1
+	}
 }
 
 func (p *PubsubValueStore) Subscribe(key string) error {
@@ -126,36 +155,88 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	// record hasn't expired.
 	//
 	// Also, make sure to do this *before* subscribing.
-	p.ps.RegisterTopicValidator(topic, func(ctx context.Context, _ peer.ID, msg *pubsub.Message) bool {
-		return p.isBetter(key, msg.GetData())
+	myID := p.host.ID()
+	_ = p.ps.RegisterTopicValidator(topic, func(ctx context.Context, src peer.ID, msg *pubsub.Message) bool {
+		cmp := p.compare(key, msg.GetData())
+
+		return cmp > 0 || cmp == 0 && src == myID
 	})
 
 	sub, err := p.ps.Subscribe(topic)
 	if err != nil {
-		p.mx.Unlock()
 		return err
 	}
 
 	p.mx.Lock()
-	existingSub, bootstraped := p.subs[key]
+	existingSub, bootstrapped := p.subs[key]
 	if existingSub != nil {
 		p.mx.Unlock()
 		sub.Cancel()
 		return nil
 	}
 
-	p.subs[key] = sub
 	ctx, cancel := context.WithCancel(p.ctx)
-	go p.handleSubscription(sub, key, cancel)
+	p.cancels[key] = cancel
+
+	p.subs[key] = sub
+	go p.handleSubscription(ctx, sub, key, cancel)
 	p.mx.Unlock()
 
 	log.Debugf("PubsubResolve: subscribed to %s", key)
 
-	if !bootstraped {
+	if !bootstrapped {
 		// TODO: Deal with publish then resolve case? Cancel behaviour changes.
 		go bootstrapPubsub(ctx, p.cr, p.host, topic)
 	}
+
 	return nil
+}
+
+func (p *PubsubValueStore) rebroadcast(ctx context.Context) {
+	select {
+	case <-time.After(p.rebroadcastInitialDelay):
+	case <-ctx.Done():
+		return
+	}
+
+	ticker := time.NewTicker(p.rebroadcastInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			var keys []string
+			p.mx.Lock()
+			keys = make([]string, 0, len(p.subs))
+			for p, _ := range p.subs {
+				keys = append(keys, p)
+			}
+			p.mx.Unlock()
+			if len(keys) > 0 {
+				for _, k := range keys {
+					val, err := p.getLocal(k)
+					if err == nil {
+						topic := KeyToTopic(k)
+						select {
+						case <-p.psPublishChannel(topic, val):
+						case <-ctx.Done():
+							return
+						}
+					}
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (p *PubsubValueStore) psPublishChannel(topic string, value []byte) chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- p.ps.Publish(topic, value)
+	}()
+	return done
 }
 
 func (p *PubsubValueStore) getLocal(key string) ([]byte, error) {
@@ -274,7 +355,7 @@ func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 	p.watchLk.Lock()
 	if _, wok := p.watching[name]; wok {
 		p.watchLk.Unlock()
-		return false, errors.New("key has active subscriptions")
+		return false, fmt.Errorf("key has active subscriptions")
 	}
 	p.watchLk.Unlock()
 
@@ -284,29 +365,119 @@ func (p *PubsubValueStore) Cancel(name string) (bool, error) {
 		delete(p.subs, name)
 	}
 
+	if cancel, ok := p.cancels[name]; ok {
+		cancel()
+		delete(p.cancels, name)
+	}
+
 	return ok, nil
 }
 
-func (p *PubsubValueStore) handleSubscription(sub *pubsub.Subscription, key string, cancel func()) {
+func (p *PubsubValueStore) handleSubscription(ctx context.Context, sub *pubsub.Subscription, key string, cancel func()) {
 	defer sub.Cancel()
 	defer cancel()
 
-	for {
-		msg, err := sub.Next(p.ctx)
-		if err != nil {
-			if err != context.Canceled {
-				log.Warningf("PubsubResolve: subscription error in %s: %s", key, err.Error())
+	newMsg := make(chan []byte)
+	go func() {
+		defer close(newMsg)
+		for {
+			data, err := p.handleNewMsgs(ctx, sub, key)
+			if err != nil {
+				return
 			}
+			select {
+			case newMsg <- data:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	newPeerData := make(chan []byte)
+	go func() {
+		defer close(newPeerData)
+		for {
+			data, err := p.handleNewPeer(ctx, sub, key)
+			if err == nil {
+				if data != nil {
+					select {
+					case newPeerData <- data:
+					case <-ctx.Done():
+						return
+					}
+				}
+			} else {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					log.Errorf("PubsubPeerJoin: error interacting with new peer", err)
+				}
+			}
+		}
+	}()
+
+	for {
+		var data []byte
+		var ok bool
+		select {
+		case data, ok = <-newMsg:
+			if !ok {
+				return
+			}
+		case data, ok = <-newPeerData:
+			if !ok {
+				return
+			}
+		case <-ctx.Done():
 			return
 		}
-		if p.isBetter(key, msg.GetData()) {
-			err := p.ds.Put(dshelp.NewKeyFromBinary([]byte(key)), msg.GetData())
+
+		if p.compare(key, data) > 0 {
+			err := p.ds.Put(dshelp.NewKeyFromBinary([]byte(key)), data)
 			if err != nil {
 				log.Warningf("PubsubResolve: error writing update for %s: %s", key, err)
 			}
-			p.notifyWatchers(key, msg.GetData())
+			p.notifyWatchers(key, data)
 		}
 	}
+}
+
+func (p *PubsubValueStore) handleNewMsgs(ctx context.Context, sub *pubsub.Subscription, key string) ([]byte, error) {
+	msg, err := sub.Next(ctx)
+	if err != nil {
+		if err != context.Canceled {
+			log.Warningf("PubsubResolve: subscription error in %s: %s", key, err.Error())
+		}
+		return nil, err
+	}
+	return msg.GetData(), nil
+}
+
+func (p *PubsubValueStore) handleNewPeer(ctx context.Context, sub *pubsub.Subscription, key string) ([]byte, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	var pid peer.ID
+
+	for {
+		peerEvt, err := sub.NextPeerEvent(ctx)
+		if err != nil {
+			if err != context.Canceled {
+				log.Warningf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
+			}
+			return nil, err
+		}
+		if peerEvt.Type == pubsub.PeerJoin {
+			pid = peerEvt.Peer
+			break
+		}
+	}
+
+	return p.fetch.Fetch(ctx, pid, key)
 }
 
 func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {

@@ -105,6 +105,47 @@ func setupTest(ctx context.Context, t *testing.T) (*PubsubValueStore, []*PubsubV
 }
 
 // tests
+func TestEarlyPublish(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := newNetHosts(ctx, t, 5)
+
+	key := "/namespace/key"
+	val := []byte("valid for key 1")
+
+	vss := make([]*PubsubValueStore, len(hosts))
+	for i := 0; i < len(vss); i++ {
+		fs, err := pubsub.NewFloodSub(ctx, hosts[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		vss[i] = NewPubsubValueStore(ctx, hosts[i], rhelper.Null{}, fs, testValidator{})
+	}
+
+	pub := vss[0]
+	vss = vss[1:]
+
+	if err := pub.PutValue(ctx, key, val); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, vs := range vss {
+		connect(t, hosts[i], hosts[i+1])
+		if err := vs.Subscribe(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Wait for Fetch protocol to retrieve data
+	time.Sleep(time.Second * 1)
+	for i, vs := range vss {
+		checkValue(ctx, t, i, vs, key, val)
+	}
+
+}
+
 func TestPubsubPublishSubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -192,16 +233,24 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 	}
 	time.Sleep(time.Millisecond * 100)
 
+	// Get missed value?
 	nval = []byte("valid for key 3")
 	err = pub.PutValue(ctx, key, nval)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// check we still have the old value in the vssolver
+	// resubscribe
+	for _, vs := range vss {
+		if err := vs.Subscribe(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// check that we get the new value
 	time.Sleep(time.Second * 1)
 	for i, vs := range vss {
-		checkValue(ctx, t, i, vs, key, val)
+		checkValue(ctx, t, i, vs, key, nval)
 	}
 }
 
@@ -258,7 +307,6 @@ func TestWatch(t *testing.T) {
 	if v != "valid for key 2" {
 		t.Errorf("got unexpected value: %s", v)
 	}
-
 }
 
 func checkNotFound(ctx context.Context, t *testing.T, i int, vs routing.ValueStore, key string) {
