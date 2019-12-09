@@ -46,8 +46,8 @@ func TestFetchProtocolTrip(t *testing.T) {
 	d2 := &datastore{map[string][]byte{"key": []byte("value2")}}
 	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
-	fetchCheck(t, ctx, h1, h2, "key", []byte("value2"))
-	fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
+	fetchCheck(ctx, t, h1, h2, "key", []byte("value2"))
+	fetchCheck(ctx, t, h2, h1, "key", []byte("value1"))
 }
 
 func TestFetchProtocolNotFound(t *testing.T) {
@@ -66,8 +66,8 @@ func TestFetchProtocolNotFound(t *testing.T) {
 	d2 := &datastore{make(map[string][]byte)}
 	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
-	fetchCheck(t, ctx, h1, h2, "key", nil)
-	fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
+	fetchCheck(ctx, t, h1, h2, "key", nil)
+	fetchCheck(ctx, t, h2, h1, "key", []byte("value1"))
 }
 
 func TestFetchProtocolRepeated(t *testing.T) {
@@ -87,12 +87,12 @@ func TestFetchProtocolRepeated(t *testing.T) {
 	h2 := newFetchProtocol(ctx, hosts[1], d2.Lookup)
 
 	for i := 0; i < 10; i++ {
-		fetchCheck(t, ctx, h1, h2, "key", nil)
-		fetchCheck(t, ctx, h2, h1, "key", []byte("value1"))
+		fetchCheck(ctx, t, h1, h2, "key", nil)
+		fetchCheck(ctx, t, h2, h1, "key", []byte("value1"))
 	}
 }
 
-func fetchCheck(t *testing.T, ctx context.Context,
+func fetchCheck(ctx context.Context, t *testing.T,
 	requester *fetchProtocol, responder *fetchProtocol, key string, expected []byte) {
 	data, err := requester.Fetch(ctx, responder.host.ID(), key)
 	if err != nil {
