@@ -2,7 +2,7 @@ module github.com/libp2p/go-libp2p-pubsub-router
 
 require (
 	github.com/gogo/protobuf v1.3.1
-	github.com/ipfs/go-cid v0.0.2
+	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.3.1
 	github.com/ipfs/go-ipfs-ds-help v0.0.1
 	github.com/ipfs/go-ipfs-util v0.0.1
