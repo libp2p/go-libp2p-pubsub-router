@@ -9,7 +9,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.3.0
 	github.com/libp2p/go-libp2p-pubsub v0.2.6
 	github.com/libp2p/go-libp2p-record v0.1.2
-	github.com/libp2p/go-libp2p-swarm v0.2.2
+	github.com/libp2p/go-libp2p-swarm v0.2.3
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
 )
 
