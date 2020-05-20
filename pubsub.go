@@ -19,7 +19,7 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
-	logging "github.com/ipfs/go-log"
+	logging "github.com/ipfs/go-log/v2"
 )
 
 var log = logging.Logger("pubsub-valuestore")
@@ -517,7 +517,7 @@ func (p *PubsubValueStore) handleSubscription(ctx context.Context, ti *topicInfo
 		ti.dbWriteMx.Unlock()
 		if recCmp > 0 {
 			if err != nil {
-				log.Warningf("PubsubResolve: error writing update for %s: %s", key, err)
+				log.Warnf("PubsubResolve: error writing update for %s: %s", key, err)
 			}
 			p.notifyWatchers(key, data)
 		}
@@ -528,7 +528,7 @@ func (p *PubsubValueStore) handleNewMsgs(ctx context.Context, sub *pubsub.Subscr
 	msg, err := sub.Next(ctx)
 	if err != nil {
 		if err != context.Canceled {
-			log.Warningf("PubsubResolve: subscription error in %s: %s", key, err.Error())
+			log.Warnf("PubsubResolve: subscription error in %s: %s", key, err.Error())
 		}
 		return nil, err
 	}
@@ -540,7 +540,7 @@ func (p *PubsubValueStore) handleNewPeer(ctx context.Context, peerEvtHandler *pu
 		peerEvt, err := peerEvtHandler.NextPeerEvent(ctx)
 		if err != nil {
 			if err != context.Canceled {
-				log.Warningf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
+				log.Warnf("PubsubNewPeer: subscription error in %s: %s", key, err.Error())
 			}
 			return nil, err
 		}
