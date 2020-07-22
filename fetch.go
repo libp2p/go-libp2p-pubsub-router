@@ -24,7 +24,7 @@ type fetchProtocol struct {
 	host host.Host
 }
 
-type getValue func(key string) ([]byte, error)
+type getValue func(ctx context.Context, key string) ([]byte, error)
 
 func newFetchProtocol(ctx context.Context, host host.Host, getData getValue) *fetchProtocol {
 	p := &fetchProtocol{ctx, host}
@@ -46,7 +46,7 @@ func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 		return
 	}
 
-	response, err := getData(msg.Identifier)
+	response, err := getData(p.ctx, msg.Identifier)
 	var respProto pb.FetchResponse
 
 	if err != nil {

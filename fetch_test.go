@@ -22,7 +22,7 @@ type datastore struct {
 	data map[string][]byte
 }
 
-func (d *datastore) Lookup(key string) ([]byte, error) {
+func (d *datastore) Lookup(ctx context.Context, key string) ([]byte, error) {
 	v, ok := d.data[key]
 	if !ok {
 		return nil, errors.New("key not found")
