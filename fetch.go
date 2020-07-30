@@ -5,16 +5,17 @@ import (
 	"errors"
 	"time"
 
-	ggio "github.com/gogo/protobuf/io"
-	"github.com/gogo/protobuf/proto"
-
 	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 
+	"github.com/libp2p/go-msgio/protoio"
+
 	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
+
+	"github.com/gogo/protobuf/proto"
 )
 
 const FetchProtoID = protocol.ID("/libp2p/fetch/0.0.1")
@@ -95,7 +96,7 @@ func (p *fetchProtocol) Fetch(ctx context.Context, pid peer.ID, key string) ([]b
 func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
 	done := make(chan error, 1)
 	go func() {
-		wc := ggio.NewDelimitedWriter(s)
+		wc := protoio.NewDelimitedWriter(s)
 
 		if err := wc.WriteMsg(msg); err != nil {
 			done <- err
@@ -122,7 +123,7 @@ func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
 func readMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
 	done := make(chan error, 1)
 	go func() {
-		r := ggio.NewDelimitedReader(s, 1<<20)
+		r := protoio.NewDelimitedReader(s, 1<<20)
 		if err := r.ReadMsg(msg); err != nil {
 			done <- err
 			return
