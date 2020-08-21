@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/ipfs/go-datastore v0.4.4
-	github.com/ipfs/go-ipfs-ds-help v1.0.0
+	github.com/ipfs/go-ipfs-ds-help v0.1.1
 	github.com/ipfs/go-log/v2 v2.1.1
 	github.com/libp2p/go-libp2p-blankhost v0.2.0
 	github.com/libp2p/go-libp2p-core v0.6.0
