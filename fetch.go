@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -38,7 +37,7 @@ func newFetchProtocol(ctx context.Context, host host.Host, getData getValue) *fe
 }
 
 func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
-	defer helpers.FullClose(s)
+	defer s.Close()
 
 	msg := &pb.FetchRequest{}
 	if err := readMsg(p.ctx, s, msg); err != nil {
@@ -57,6 +56,7 @@ func (p *fetchProtocol) receive(s network.Stream, getData getValue) {
 	}
 
 	if err := writeMsg(p.ctx, s, &respProto); err != nil {
+		s.Reset()
 		return
 	}
 }
@@ -69,17 +69,23 @@ func (p *fetchProtocol) Fetch(ctx context.Context, pid peer.ID, key string) ([]b
 	if err != nil {
 		return nil, err
 	}
-	defer helpers.FullClose(s)
+	defer s.Close()
 
 	msg := &pb.FetchRequest{Identifier: key}
 
 	if err := writeMsg(ctx, s, msg); err != nil {
+		_ = s.Reset()
 		return nil, err
 	}
-	s.Close()
+
+	if err := s.CloseWrite(); err != nil {
+		_ = s.Reset()
+		return nil, err
+	}
 
 	response := &pb.FetchResponse{}
 	if err := readMsg(ctx, s, response); err != nil {
+		_ = s.Reset()
 		return nil, err
 	}
 
@@ -114,7 +120,6 @@ func writeMsg(ctx context.Context, s network.Stream, msg proto.Message) error {
 	}
 
 	if retErr != nil {
-		s.Reset()
 		log.Infof("error writing response to %s: %s", s.Conn().RemotePeer(), retErr)
 	}
 	return retErr
