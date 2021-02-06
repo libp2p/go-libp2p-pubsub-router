@@ -589,3 +589,11 @@ func WithRebroadcastInitialDelay(duration time.Duration) Option {
 		return nil
 	}
 }
+
+// WithDatastore returns an option that overrides the default datastore.
+func WithDatastore(datastore ds.Datastore) Option {
+	return func(store *PubsubValueStore) error {
+		store.ds = datastore
+		return nil
+	}
+}
