@@ -175,7 +175,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	defer p.mx.Unlock()
 
 	// see if we already have a pubsub subscription; if not, subscribe
-	ti, ok := p.topics[key]
+	_, ok := p.topics[key]
 	if ok {
 		return nil
 	}

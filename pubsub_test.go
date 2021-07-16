@@ -51,7 +51,6 @@ func (testValidator) Validate(key string, value []byte) error {
 		return record.ErrInvalidRecordType
 	}
 	return nil
-
 }
 
 func (testValidator) Select(key string, vals [][]byte) (int, error) {
@@ -151,7 +150,6 @@ func TestEarlyPublish(t *testing.T) {
 	for i, vs := range vss {
 		checkValue(ctx, t, i, vs, key, val)
 	}
-
 }
 
 func TestPubsubPublishSubscribe(t *testing.T) {
@@ -189,7 +187,7 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 
 	// Check selector.
 	nval := []byte("valid for key 1")
-	err = pub.PutValue(ctx, key, val)
+	err = pub.PutValue(ctx, key, nval)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +200,7 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 
 	// Check validator.
 	nval = []byte("valid for key 9999 invalid")
-	err = pub.PutValue(ctx, key, val)
+	err = pub.PutValue(ctx, key, nval)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +291,7 @@ func TestWatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ch, err = vss[1].SearchValue(ctx, key2)
+	_, err = vss[1].SearchValue(ctx, key2)
 	if err != nil {
 		t.Fatal(err)
 	}
