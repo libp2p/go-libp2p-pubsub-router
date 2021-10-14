@@ -20,7 +20,8 @@ import (
 )
 
 func newNetHost(ctx context.Context, t *testing.T) host.Host {
-	netw := swarmt.GenSwarm(t, ctx)
+	netw := swarmt.GenSwarm(t)
+	t.Cleanup(func() { netw.Close() })
 	return bhost.NewBlankHost(netw)
 }
 
@@ -159,6 +160,7 @@ func TestPubsubPublishSubscribe(t *testing.T) {
 	defer cancel()
 
 	pub, vss := setupTest(ctx, t)
+	defer pub.host.Close()
 
 	key := "/namespace/key"
 	key2 := "/namespace/key2"
@@ -268,6 +270,7 @@ func TestWatch(t *testing.T) {
 	defer cancel()
 
 	pub, vss := setupTest(ctx, t)
+	defer pub.host.Close()
 
 	key := "/namespace/key"
 	key2 := "/namespace/key2"
