@@ -21,8 +21,14 @@ import (
 
 func newNetHost(ctx context.Context, t *testing.T) host.Host {
 	netw := swarmt.GenSwarm(t)
-	t.Cleanup(func() { netw.Close() })
-	return bhost.NewBlankHost(netw)
+	bh := bhost.NewBlankHost(netw)
+	t.Cleanup(func() {
+		err := bh.Close()
+		if err != nil {
+			panic(err)
+		}
+	})
+	return bh
 }
 
 func newNetHosts(ctx context.Context, t *testing.T, n int) []host.Host {
@@ -33,6 +39,7 @@ func newNetHosts(ctx context.Context, t *testing.T, n int) []host.Host {
 		out = append(out, h)
 	}
 
+	time.Sleep(3 * time.Second)
 	return out
 }
 
