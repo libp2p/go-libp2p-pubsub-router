@@ -489,13 +489,13 @@ func (p *PubsubValueStore) handleSubscription(ctx context.Context, ti *topicInfo
 		for {
 			select {
 			case <-timer.C:
-				// the EOL deadline changed in the meantime
-				if ti.eol.After(time.Now()) {
-					timer.Reset(time.Until(ti.eol))
-				} else {
+				// before-or-now
+				if !ti.eol.After(time.Now()) {
 					eol <- true
 					return
 				}
+				// EOL deadline changed in the meantime
+				timer.Reset(time.Until(ti.eol))
 			case <-ctx.Done():
 				return
 			}
@@ -641,6 +641,5 @@ func formatKey(key string) string {
 	if err != nil {
 		log.Error(err)
 	}
-	//nolint deprecated
 	return "/ipns/" + peer.Encode(pid)
 }
