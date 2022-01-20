@@ -635,11 +635,12 @@ func WithDatastore(datastore ds.Datastore) Option {
 func formatKey(key string) string {
 	ns, k, err := record.SplitKey(key)
 	if err != nil || ns != "ipns" {
-		log.Error(err)
+		return key
 	}
 	pid, err := peer.IDFromString(k)
 	if err != nil {
 		log.Error(err)
+		return key
 	}
 	return "/ipns/" + peer.Encode(pid)
 }
