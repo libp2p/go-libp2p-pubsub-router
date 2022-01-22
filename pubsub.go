@@ -24,8 +24,8 @@ import (
 
 var log = logging.Logger("pubsub-valuestore")
 
-// DefaultSubscriptionLifetime is the default lifetime for PubSub subscriptions
-const DefaultSubscriptionLifetime = time.Hour * 36
+// DefaultSubscriptionLifetime is the default lifetime for PubSub subscriptions.
+const DefaultSubscriptionLifetime = 365 * 24 * time.Hour
 
 // Pubsub is the minimal subset of the pubsub interface required by the pubsub
 // value store. This way, users can wrap the underlying pubsub implementation
@@ -50,6 +50,7 @@ type PubsubValueStore struct {
 
 	rebroadcastInitialDelay time.Duration
 	rebroadcastInterval     time.Duration
+	unusedSubscriptionTTL   map[string]time.Duration
 
 	// Map of keys to topics
 	mx     sync.Mutex
@@ -93,6 +94,7 @@ func NewPubsubValueStore(ctx context.Context, host host.Host, ps Pubsub, validat
 		host:                    host,
 		rebroadcastInitialDelay: 100 * time.Millisecond,
 		rebroadcastInterval:     time.Minute * 10,
+		unusedSubscriptionTTL:   make(map[string]time.Duration),
 
 		topics:   make(map[string]*topicInfo),
 		watching: make(map[string]*watchGroup),
@@ -182,7 +184,11 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	ti, ok := p.topics[key]
 	if ok {
 		// bump the EOL deadline
-		ti.eol = time.Now().Add(DefaultSubscriptionLifetime)
+		ttl, err := p.getTTLforKey(key)
+		if err != nil {
+			return err
+		}
+		ti.eol = time.Now().Add(ttl)
 		return nil
 	}
 
@@ -209,7 +215,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 		return pubsub.ValidationIgnore
 	})
 
-	ti, err := p.createTopicHandler(topic)
+	ti, err := p.createTopicHandler(topic, key)
 	if err != nil {
 		return err
 	}
@@ -226,7 +232,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 }
 
 // createTopicHandler creates an internal topic object. Must be called with p.mx held
-func (p *PubsubValueStore) createTopicHandler(topic string) (*topicInfo, error) {
+func (p *PubsubValueStore) createTopicHandler(topic string, key string) (*topicInfo, error) {
 	t, err := p.ps.Join(topic)
 	if err != nil {
 		return nil, err
@@ -244,11 +250,16 @@ func (p *PubsubValueStore) createTopicHandler(topic string) (*topicInfo, error) 
 		_ = t.Close()
 	}
 
+	ttl, err := p.getTTLforKey(key)
+	if err != nil {
+		return nil, err
+	}
+
 	ti := &topicInfo{
 		topic:    t,
 		evts:     evts,
 		sub:      sub,
-		eol:      time.Now().Add(DefaultSubscriptionLifetime),
+		eol:      time.Now().Add(ttl),
 		finished: make(chan struct{}, 1),
 	}
 
@@ -610,6 +621,18 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 	}
 }
 
+func (p *PubsubValueStore) getTTLforKey(key string) (time.Duration, error) {
+	ns, _, err := record.SplitKey(key)
+	if err != nil {
+		return DefaultSubscriptionLifetime, err
+	}
+	nsTTL, ok := p.unusedSubscriptionTTL[ns]
+	if ok {
+		return nsTTL, nil
+	}
+	return DefaultSubscriptionLifetime, nil
+}
+
 func WithRebroadcastInterval(duration time.Duration) Option {
 	return func(store *PubsubValueStore) error {
 		store.rebroadcastInterval = duration
@@ -632,9 +655,20 @@ func WithDatastore(datastore ds.Datastore) Option {
 	}
 }
 
+// WithDatastore returns an option that sets a TTL for a specific namespace.
+func WithUnusedSubscriptionTTL(ttl time.Duration, namespace string) Option {
+	return func(store *PubsubValueStore) error {
+		store.unusedSubscriptionTTL[namespace] = ttl
+		return nil
+	}
+}
+
 func formatKey(key string) string {
 	ns, k, err := record.SplitKey(key)
-	if err != nil || ns != "ipns" {
+	if err != nil {
+		log.Error(err)
+		return key
+	} else if ns != "ipns" {
 		return key
 	}
 	pid, err := peer.IDFromString(k)
