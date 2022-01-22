@@ -184,7 +184,7 @@ func (p *PubsubValueStore) Subscribe(key string) error {
 	ti, ok := p.topics[key]
 	if ok {
 		// bump the EOL deadline
-		ttl, err := p.getTTLforKey(key)
+		ttl, err := p.getTTLForKey(key)
 		if err != nil {
 			return err
 		}
@@ -250,7 +250,7 @@ func (p *PubsubValueStore) createTopicHandler(topic string, key string) (*topicI
 		_ = t.Close()
 	}
 
-	ttl, err := p.getTTLforKey(key)
+	ttl, err := p.getTTLForKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func (p *PubsubValueStore) notifyWatchers(key string, data []byte) {
 	}
 }
 
-func (p *PubsubValueStore) getTTLforKey(key string) (time.Duration, error) {
+func (p *PubsubValueStore) getTTLForKey(key string) (time.Duration, error) {
 	ns, _, err := record.SplitKey(key)
 	if err != nil {
 		return DefaultSubscriptionLifetime, err
