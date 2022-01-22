@@ -387,6 +387,49 @@ func TestPutMany(t *testing.T) {
 	}
 }
 
+func TestGC(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pub, _ := setupTest(ctx, t)
+	defer pub.host.Close()
+
+	// set separate TTLs per namespace
+	pub.unusedSubscriptionTTL["namespace1"] = time.Millisecond * 50
+	pub.unusedSubscriptionTTL["namespace2"] = time.Millisecond * 200
+
+	// subscribe to both namespaces
+	key1 := "/namespace1/key"
+	key2 := "/namespace2/key"
+	val := []byte("foo")
+	err := pub.PutValue(ctx, key1, val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = pub.PutValue(ctx, key2, val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(pub.GetSubscriptions()) != 2 {
+		t.Fatal("subscriptions not added")
+	}
+
+	// wait 100ms for the 1st GC
+	time.Sleep(time.Millisecond * 100)
+
+	if len(pub.GetSubscriptions()) != 1 {
+		t.Fatal("first subscription not garbage collected after TTL")
+	}
+
+	// wait 200ms for the 2nd GC
+	time.Sleep(time.Millisecond * 200)
+
+	if len(pub.GetSubscriptions()) != 0 {
+		t.Fatal("second subscription not garbage collected after TTL")
+	}
+}
+
 func checkNotFound(ctx context.Context, t *testing.T, i int, vs routing.ValueStore, key string) {
 	t.Helper()
 	_, err := vs.GetValue(ctx, key)
