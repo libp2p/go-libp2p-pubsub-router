@@ -16,7 +16,7 @@ import (
 	bhost "github.com/libp2p/go-libp2p-blankhost"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
-	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	swarmt "github.com/libp2p/go-libp2p/p2p/net/swarm/testing"
 )
 
 func newNetHost(ctx context.Context, t *testing.T) host.Host {
