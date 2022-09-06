@@ -5,16 +5,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
-
-	"github.com/libp2p/go-msgio/protoio"
-
-	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
-
 	"github.com/gogo/protobuf/proto"
+	pb "github.com/libp2p/go-libp2p-pubsub-router/pb"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-msgio/protoio"
 )
 
 const FetchProtoID = protocol.ID("/libp2p/fetch/0.0.1")
