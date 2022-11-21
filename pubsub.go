@@ -146,7 +146,6 @@ func (p *PubsubValueStore) PutValue(ctx context.Context, key string, value []byt
 // compare compares the input value with the current value.
 // First return value is 0 if equal, greater than 0 if better, less than 0 if worse.
 // Second return value is true if valid.
-//
 func (p *PubsubValueStore) compare(ctx context.Context, key string, val []byte) (int, bool) {
 	if p.Validator.Validate(key, val) != nil {
 		return -1, false
