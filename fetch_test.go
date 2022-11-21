@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p/core/host"
 )
 
 func connect(t *testing.T, a, b host.Host) {
