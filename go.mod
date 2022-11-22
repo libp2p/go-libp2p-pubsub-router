@@ -9,7 +9,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/libp2p/go-libp2p v0.22.0
 	github.com/libp2p/go-libp2p-pubsub v0.8.1
-	github.com/libp2p/go-libp2p-record v0.1.3
+	github.com/libp2p/go-libp2p-record v0.2.0
 	github.com/libp2p/go-msgio v0.2.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )
@@ -37,7 +37,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-core v0.20.1 // indirect
 	github.com/libp2p/go-netroute v0.2.0 // indirect
 	github.com/libp2p/go-openssl v0.1.0 // indirect
 	github.com/libp2p/go-reuseport v0.2.0 // indirect
