@@ -1,6 +1,7 @@
 module github.com/libp2p/go-libp2p-pubsub-router
 
-go 1.20
+go 1.21
+
 
 require (
 	github.com/gogo/protobuf v1.3.2
