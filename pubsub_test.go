@@ -417,7 +417,7 @@ func waitForPropagation(ctx context.Context, t *testing.T, vss []*PubsubValueSto
 				// Not propogated yet
 				return false, nil
 			} else {
-				// Some other error occured
+				// Some other error occurred
 				return false, err
 			}
 		}
