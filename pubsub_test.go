@@ -10,24 +10,27 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/routing"
-	bhost "github.com/libp2p/go-libp2p/p2p/host/blank"
-	swarmt "github.com/libp2p/go-libp2p/p2p/net/swarm/testing"
 )
 
 func newNetHost(ctx context.Context, t *testing.T) host.Host {
-	netw := swarmt.GenSwarm(t)
-	bh := bhost.NewBlankHost(netw)
+	// go-libp2p-pubsub attaches peers based on identify events, so tests
+	// need full hosts; blank hosts without identify never exchange messages.
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
-		err := bh.Close()
+		err := h.Close()
 		if err != nil {
 			panic(err)
 		}
 	})
-	return bh
+	return h
 }
 
 func newNetHosts(ctx context.Context, t *testing.T, n int) []host.Host {
